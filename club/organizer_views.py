@@ -5,6 +5,7 @@ from datetime import timedelta
 from urllib.parse import urlencode
 
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core import signing
 from django.core.exceptions import ValidationError
@@ -18,7 +19,10 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from accounts.permissions import is_admin, require_admin, require_organizer
 
-from .forms import CorrectionForm, OpenPlayForm, ReasonForm, RedemptionForm, VenueForm, WalkInForm
+from .forms import (
+    CorrectionForm, IdentityLinkForm, IdentityLookupForm, OpenPlayForm, ReasonForm,
+    RedemptionForm, VenueForm, WalkInForm,
+)
 from .loyalty import get_loyalty_summary, redeem_reward
 from .models import Attendance, OpenPlay, Player, Registration, RewardIssuance, Venue
 from .services import (
@@ -30,6 +34,8 @@ from .services import (
     create_venue,
     find_players,
     find_walk_in_matches,
+    link_player_account,
+    openplays_attended,
     restore_attendance,
     void_attendance,
 )
@@ -321,6 +327,58 @@ def redeem(request, player_id, issuance_id):
         status = 409
     return render(request, "organizer/redeem.html", {
         "player": player, "issuance": issuance, "form": form, "error": error,
+    }, status=status)
+
+
+@admin_view
+@require_GET
+def identity_search(request):
+    query = request.GET.get("q", "").strip()[:100]
+    players = list(find_players(term=query, actor=request.user).filter(user__isnull=True)
+                   .order_by("display_name", "pk")[:30]) if len(query) >= 2 else []
+    return render(request, "organizer/identity_search.html", {"query": query, "players": players})
+
+
+@admin_view
+@require_http_methods(["GET", "POST"])
+def identity_link(request, player_id):
+    """The admin names the Player and the account; nothing is matched or linked automatically."""
+    User = get_user_model()
+    player = get_object_or_404(Player.objects.select_related("user"), pk=player_id)
+    lookup_form = IdentityLookupForm(request.GET or None)
+    link_form = None
+    account = None
+    status = 200
+    if request.method == "POST":
+        link_form = IdentityLinkForm(request.POST)
+        if link_form.is_valid():
+            try:
+                link_player_account(
+                    player_id=player.pk, user_id=link_form.cleaned_data["user_id"], actor=request.user,
+                )
+            except ValidationError as error:
+                link_form.add_error(None, _error_text(error))
+                status = 409
+            except User.DoesNotExist:
+                link_form.add_error(None, "Account not found.")
+                status = 409
+            else:
+                messages.success(request, "Account linked. The player's history and rewards are unchanged.")
+                return redirect("organizer:player", player_id=player.pk)
+        else:
+            status = 400
+        raw_id = request.POST.get("user_id", "")
+        account = User.objects.filter(pk=raw_id).first() if raw_id.isdigit() else None
+    elif request.GET.get("email") and lookup_form.is_valid():
+        account = User.objects.filter(email__iexact=lookup_form.cleaned_data["email"]).first()
+        if account is None:
+            lookup_form.add_error("email", "No account has that email.")
+        else:
+            link_form = IdentityLinkForm(initial={"user_id": account.pk})
+    return render(request, "organizer/identity_link.html", {
+        "player": player, "attended": openplays_attended(player),
+        "lookup_form": lookup_form, "link_form": link_form, "account": account,
+        "account_player": Player.objects.filter(user=account).first() if account else None,
     }, status=status)
 
 

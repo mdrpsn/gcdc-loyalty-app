@@ -3,6 +3,7 @@
 {% block organizer_content %}
 <a class="back-link" href="{% url 'organizer:players' %}">← Player search</a>
 <div class="page-heading"><p class="eyebrow">Player record</p><h1>{{ player.display_name }}</h1><p>{% if player.user_id %}{{ player.user.email }}{% elif player.contact_email %}{{ player.contact_email }} <span class="muted">· provisional</span>{% endif %}{% if player.phone %} · {{ player.phone }}{% endif %}</p></div>
+{% if is_admin and not player.user_id %}<p><a class="button secondary" href="{% url 'organizer:identity_link' player.pk %}">Link to account</a></p>{% endif %}
 <section class="score-strip" aria-label="Loyalty progress"><div><strong>{{ summary.openplays_attended }}</strong><span>OpenPlays Attended</span></div><div><strong>{% if summary.current_level %}{{ summary.current_level.name }}{% else %}—{% endif %}</strong><span>Current level</span></div><div><strong>{{ summary.completed_attendances }}</strong><span>Completed attendances</span></div></section>
 {% if summary.openplays_attended > summary.completed_attendances %}<p class="notice warning">Recent check-ins count toward attendance. New rewards become available after those OpenPlays are completed.</p>{% endif %}
 <section class="subsection"><h2>Rewards</h2><div class="card reward-list">

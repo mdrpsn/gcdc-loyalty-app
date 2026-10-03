@@ -1,0 +1,7 @@
+{% extends "organizer/base.html" %}
+{% block title %}Link accounts · Got Cha Dink Club{% endblock %}
+{% block organizer_content %}
+<div class="page-heading"><p class="eyebrow">Admin identity</p><h1>Link an account to a player</h1><p>Find the unlinked player record first. You choose the account on the next page.</p></div>
+<section class="card search-panel"><form method="get" class="search-form"><label for="player-search">Unlinked player: name, phone, or provisional email</label><div class="search-controls"><input id="player-search" name="q" type="search" minlength="2" maxlength="100" value="{{ query }}" required><button class="button primary" type="submit">Search</button></div></form></section>
+{% if query %}<section class="roster-section"><h2>Unlinked players</h2><div class="card roster-list">{% for player in players %}<a class="roster-row result-link" href="{% url 'organizer:identity_link' player.pk %}"><strong>{{ player.display_name }}</strong><span>{% if player.contact_email %}{{ player.contact_email }} <span class="muted">· provisional</span>{% else %}{{ player.phone }}{% endif %}</span></a>{% empty %}<p class="empty-inline">No matching unlinked players.</p>{% endfor %}</div></section>{% endif %}
+{% endblock %}

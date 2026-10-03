@@ -58,6 +58,15 @@ class WalkInForm(forms.Form):
         return data
 
 
+class IdentityLookupForm(forms.Form):
+    email = forms.EmailField(label="Account email")
+
+
+class IdentityLinkForm(forms.Form):
+    user_id = forms.IntegerField(min_value=1, widget=forms.HiddenInput)
+    verified = forms.BooleanField(label="I verified this person's identity outside the app")
+
+
 class ReasonForm(forms.Form):
     reason = forms.CharField(max_length=300, widget=forms.Textarea(attrs={"rows": 3}))
 

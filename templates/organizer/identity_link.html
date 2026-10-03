@@ -1,0 +1,33 @@
+{% extends "organizer/base.html" %}
+{% block title %}Link account · Got Cha Dink Club{% endblock %}
+{% block organizer_content %}
+<a class="back-link" href="{% url 'organizer:identity' %}">← Link accounts</a>
+<div class="page-heading"><p class="eyebrow">Admin identity</p><h1>Link {{ player.display_name }} to an account</h1></div>
+{% if player.user_id %}
+<p class="notice warning" role="alert">This player is already linked to {{ player.user.email }}. Linked players cannot be relinked or merged.</p>
+{% else %}
+<p class="notice warning">Verify the person's identity outside this app before linking. Matching names or emails is not proof. Linking cannot be undone here and there is no merge screen.</p>
+<section class="card confirm-card"><h2>1. Choose the account</h2>
+  <form method="get" class="stack"><label for="id_email">Account email (exact)</label>{{ lookup_form.email }}{{ lookup_form.email.errors }}<button class="button secondary" type="submit">Look up account</button></form>
+</section>
+{% endif %}
+{% if account or player.user_id %}
+<div class="compare-grid">
+  <section class="card confirm-card" aria-label="Player record"><p class="eyebrow">Club player record</p><h2>{{ player.display_name }}</h2>
+    <ul><li>OpenPlays Attended: <strong>{{ attended }}</strong></li><li>Phone: {{ player.phone|default:"—" }}</li><li>{% if player.user_id %}Account: {{ player.user.email }}{% else %}Provisional email: {{ player.contact_email|default:"—" }}{% endif %}</li><li>Record created: {{ player.created_at|date:"M j, Y" }}</li></ul></section>
+  {% if account %}<section class="card confirm-card" aria-label="Account"><p class="eyebrow">Login account</p><h2>{{ account.email }}</h2>
+    <ul><li>Status: {% if account.is_active %}Active{% else %}Inactive{% endif %}</li><li>Joined: {{ account.date_joined|date:"M j, Y" }}</li><li>{% if account_player %}Already has player record: <strong>{{ account_player.display_name }}</strong>{% else %}No player record yet{% endif %}</li></ul></section>{% endif %}
+</div>
+{% endif %}
+{% if account and not player.user_id %}
+  {% if account_player %}<p class="notice error" role="alert">This account already has a player record and cannot be linked to another.</p>
+  {% endif %}
+  {% if link_form %}<section class="card confirm-card"><h2>2. Confirm</h2>
+    <p>On linking, the provisional contact email is cleared and the account email becomes this player's email. History and rewards stay with the player.</p>
+    <form method="post" class="stack">{% csrf_token %}{{ link_form.non_field_errors }}{{ link_form.user_id }}{{ link_form.user_id.errors }}
+      <label class="check-label"><span>{{ link_form.verified }} {{ link_form.verified.label }}</span></label>{{ link_form.verified.errors }}
+      <button class="button primary" type="submit"{% if account_player %} disabled{% endif %}>Link account</button></form>
+  </section>{% endif %}
+{% elif link_form.non_field_errors %}<p class="notice error" role="alert">{{ link_form.non_field_errors }}</p>
+{% endif %}
+{% endblock %}

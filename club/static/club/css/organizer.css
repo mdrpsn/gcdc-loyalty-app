@@ -520,3 +520,14 @@ h3 {
 .score-strip span,.page-heading h1,.page-heading p {
   overflow-wrap:anywhere
 }
+.compare-grid {
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;
+  margin:18px 0
+}
+@media (max-width:640px) {
+  .compare-grid {
+    grid-template-columns:1fr
+  }
+}

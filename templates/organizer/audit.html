@@ -1,0 +1,20 @@
+{% extends "organizer/base.html" %}
+{% load club_audit %}
+{% block title %}Audit log · Got Cha Dink Club{% endblock %}
+{% block organizer_content %}
+<div class="page-heading"><p class="eyebrow">Admin audit</p><h1>Audit log</h1><p>Newest first and read-only. Times are in the club timezone. Invalid filters are ignored.</p></div>
+<section class="card search-panel"><form method="get" class="stack">
+  {% for field in form %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}{% endfor %}
+  <button class="button primary" type="submit">Filter</button>
+  <a class="button secondary" href="{% url 'organizer:audit' %}">Clear filters</a>
+</form></section>
+<section class="roster-section"><h2>{{ page.paginator.count }} event{{ page.paginator.count|pluralize }}</h2>
+  <div class="card roster-list">
+    {% for event in page %}<article class="roster-row"><div class="roster-identity"><strong>{{ event.action }}</strong><span class="muted">{{ event.occurred_at|club_time:"M j, Y · g:i:s A" }} · {% if event.actor %}{{ event.actor.email }}{% else %}system{% endif %}</span><span class="muted">{{ event.target_type }} #{{ event.target_id }}</span>{% with text=event.details|audit_details %}{% if text %}<code class="audit-details">{{ text }}</code>{% endif %}{% endwith %}</div></article>
+    {% empty %}<p class="empty-inline">No matching audit events.</p>{% endfor %}
+  </div>
+  {% if page.has_other_pages %}<p class="muted">Page {{ page.number }} of {{ page.paginator.num_pages }}
+    {% if page.has_previous %}· <a href="?{% if query_string %}{{ query_string }}&amp;{% endif %}page={{ page.previous_page_number }}">Newer</a>{% endif %}
+    {% if page.has_next %}· <a href="?{% if query_string %}{{ query_string }}&amp;{% endif %}page={{ page.next_page_number }}">Older</a>{% endif %}</p>{% endif %}
+</section>
+{% endblock %}

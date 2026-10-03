@@ -7,7 +7,7 @@
     <nav aria-label="Organizer navigation" class="nav-links">
       <a href="{% url 'organizer:home' %}">OpenPlays</a>
       <a href="{% url 'organizer:players' %}">Players</a>
-      {% if user|is_club_admin %}<a href="{% url 'organizer:identity' %}">Link accounts</a>{% endif %}
+      {% if user|is_club_admin %}<a href="{% url 'organizer:identity' %}">Link accounts</a><a href="{% url 'organizer:audit' %}">Audit</a>{% endif %}
       <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="nav-button" type="submit">Sign out</button></form>
     </nav>
   </div>

@@ -531,3 +531,9 @@ h3 {
     grid-template-columns:1fr
   }
 }
+.audit-details {
+  display:block;
+  margin-top:4px;
+  font-size:.85rem;
+  overflow-wrap:anywhere
+}

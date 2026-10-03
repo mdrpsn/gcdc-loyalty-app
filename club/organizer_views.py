@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core import signing
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import Count, Q
 from django.http import HttpResponseBadRequest
@@ -20,11 +21,11 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from accounts.permissions import is_admin, require_admin, require_organizer
 
 from .forms import (
-    CorrectionForm, IdentityLinkForm, IdentityLookupForm, OpenPlayForm, ReasonForm,
+    AuditFilterForm, CorrectionForm, IdentityLinkForm, IdentityLookupForm, OpenPlayForm, ReasonForm,
     RedemptionForm, VenueForm, WalkInForm,
 )
 from .loyalty import get_loyalty_summary, redeem_reward
-from .models import Attendance, OpenPlay, Player, Registration, RewardIssuance, Venue
+from .models import Attendance, AuditEvent, OpenPlay, Player, Registration, RewardIssuance, Venue
 from .services import (
     cancel_openplay,
     check_in,
@@ -380,6 +381,28 @@ def identity_link(request, player_id):
         "lookup_form": lookup_form, "link_form": link_form, "account": account,
         "account_player": Player.objects.filter(user=account).first() if account else None,
     }, status=status)
+
+
+@admin_view
+@require_GET
+def audit_log(request):
+    """Read-only review of AuditEvent; only valid filters are applied."""
+    form = AuditFilterForm(request.GET)
+    form.is_valid()
+    filters = form.cleaned_data
+    events = AuditEvent.objects.select_related("actor")
+    if filters.get("action"):
+        events = events.filter(action=filters["action"])
+    if filters.get("target_type"):
+        events = events.filter(target_type=filters["target_type"])
+    if filters.get("target_id") is not None:
+        events = events.filter(target_id=filters["target_id"])
+    if filters.get("actor"):
+        events = events.filter(actor__email__iexact=filters["actor"])
+    page = Paginator(events.order_by("-occurred_at", "-pk"), 50).get_page(request.GET.get("page"))
+    params = request.GET.copy()
+    params.pop("page", None)
+    return render(request, "organizer/audit.html", {"form": form, "page": page, "query_string": params.urlencode()})
 
 
 @admin_view

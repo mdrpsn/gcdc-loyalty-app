@@ -67,6 +67,21 @@ class IdentityLinkForm(forms.Form):
     verified = forms.BooleanField(label="I verified this person's identity outside the app")
 
 
+class AuditFilterForm(forms.Form):
+    """Every field is optional; an invalid field is dropped by the view, not applied."""
+
+    action = forms.CharField(max_length=60, required=False, label="Action (exact, e.g. REWARD_ISSUED)")
+    target_type = forms.CharField(max_length=40, required=False, label="Target type (e.g. player)")
+    target_id = forms.IntegerField(min_value=1, max_value=2**63 - 1, required=False, label="Target id")
+    actor = forms.EmailField(required=False, label="Actor email")
+
+    def clean_action(self):
+        return self.cleaned_data["action"].strip().upper()
+
+    def clean_target_type(self):
+        return self.cleaned_data["target_type"].strip().lower()
+
+
 class ReasonForm(forms.Form):
     reason = forms.CharField(max_length=300, widget=forms.Textarea(attrs={"rows": 3}))
 

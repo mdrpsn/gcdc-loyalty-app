@@ -17,6 +17,7 @@ urlpatterns = [
     path("players/", views.player_search, name="players"),
     path("players/<int:player_id>/", views.player_detail, name="player"),
     path("players/<int:player_id>/rewards/<int:issuance_id>/redeem/", views.redeem, name="redeem"),
+    path("audit/", views.audit_log, name="audit"),
     path("identity/", views.identity_search, name="identity"),
     path("identity/<int:player_id>/link/", views.identity_link, name="identity_link"),
     path("attendances/<int:attendance_id>/correct/", views.correct_attendance, name="correct"),

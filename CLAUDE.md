@@ -28,7 +28,7 @@ Tests create `test_<DB_NAME>`, so the DB role needs CREATEDB. The full suite rep
 
 - **PLAYER:** any active user; own dashboard, attendance, rewards, profile, own registration.
 - **ORGANIZER** (group): sessions, rosters, check-in, walk-ins, lookup, completion, cancellation, redemption, scheduling.
-- **ADMIN** (group or superuser): also attendance void/restore, exceptional cancellation of a completed session, identity linking. `is_staff` alone grants nothing.
+- **ADMIN** (group or superuser): also attendance void/restore, exceptional cancellation of a completed session, identity linking, read-only audit review (`/organizer/audit/`). `is_staff` alone grants nothing.
 
 ## State machines
 
@@ -57,10 +57,10 @@ Identity: authentication is `User.email`. Walk-ins are unlinked Players; signup 
 
 ## Status (as of 2026-10-04)
 
-`origin/main` is at `0736f97`. Local `main` has one unpushed commit, `7c5d686` (ADMIN identity linking). The Render staging gate is blocked on the staging URL, deploy logs, and the environment-variable checklist; no staging evidence exists yet.
+`origin/main` is at `0736f97`. Local `main` has three unpushed commits on top of it: `7c5d686` (ADMIN identity linking), `cbdd4fd` (this file), and the ADMIN audit-review screen (see `git log`). Nothing is pushed until the owner says so. The Render staging gate is parked: it needs the staging URL, deploy logs, and the environment-variable checklist, and no staging evidence exists yet. Local development continues first.
 
 ## Known V1 gaps (service-only, no screen)
 
-Loyalty-configuration editor, audit-review screen, and historical-attendance addition (`add_historical_attendance`). Venue rename/deactivate and OpenPlay edit screens also do not exist (deliberately deferred; cancel and reschedule instead). See `docs/OPERATOR_RUNBOOK.md`.
+Loyalty-configuration editor and historical-attendance addition (`add_historical_attendance`). Venue rename/deactivate and OpenPlay edit screens also do not exist (deliberately deferred; cancel and reschedule instead). See `docs/OPERATOR_RUNBOOK.md`.
 
 Deployment: `docs/RENDER_DEPLOYMENT.md` and `docs/LAUNCH_READINESS.md`.

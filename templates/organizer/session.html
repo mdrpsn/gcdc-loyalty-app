@@ -38,6 +38,7 @@
     {% if can_complete %}<a class="button primary" href="{% url 'organizer:complete' openplay.pk %}">Review and complete OpenPlay</a>
     {% else %}<p class="muted">Completion becomes available after {{ openplay.ends_at|club_time:"g:i A" }}.</p>{% endif %}
   {% endif %}
+  {% if can_add_historical %}<a class="button secondary" href="{% url 'organizer:historical_search' openplay.pk %}">Add historical attendance</a>{% endif %}
   {% if can_cancel %}<a class="button secondary" href="{% url 'organizer:cancel' openplay.pk %}">Cancel OpenPlay</a>{% endif %}
 </section>
 {% endblock %}

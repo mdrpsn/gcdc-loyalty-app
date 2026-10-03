@@ -27,6 +27,7 @@ from .forms import (
 from .loyalty import get_loyalty_summary, redeem_reward
 from .models import Attendance, AuditEvent, OpenPlay, Player, Registration, RewardIssuance, Venue
 from .services import (
+    add_historical_attendance,
     cancel_openplay,
     check_in,
     check_in_walk_in,
@@ -139,6 +140,7 @@ def _session_context(request, openplay, query, walk_in_form=None, matches=None):
         "can_cancel": openplay.status == OpenPlay.Status.SCHEDULED or (
             openplay.status == OpenPlay.Status.COMPLETED and is_admin(request.user)
         ),
+        "can_add_historical": openplay.status == OpenPlay.Status.COMPLETED and is_admin(request.user),
     }
 
 
@@ -380,6 +382,55 @@ def identity_link(request, player_id):
         "player": player, "attended": openplays_attended(player),
         "lookup_form": lookup_form, "link_form": link_form, "account": account,
         "account_player": Player.objects.filter(user=account).first() if account else None,
+    }, status=status)
+
+
+@admin_view
+@require_GET
+def historical_search(request, openplay_id):
+    openplay = get_object_or_404(OpenPlay.objects.select_related("venue"), pk=openplay_id)
+    query = request.GET.get("q", "").strip()[:100]
+    players = []
+    if openplay.status == OpenPlay.Status.COMPLETED and len(query) >= 2:
+        players = list(find_players(term=query, actor=request.user).select_related("user")
+                       .order_by("display_name", "pk")[:30])
+    attendance_by_player = {
+        attendance.player_id: attendance
+        for attendance in Attendance.objects.filter(openplay=openplay, player__in=players)
+    }
+    return render(request, "organizer/historical_search.html", {
+        "openplay": openplay, "query": query,
+        "results": [{"player": player, "attendance": attendance_by_player.get(player.pk)} for player in players],
+    })
+
+
+@admin_view
+@require_http_methods(["GET", "POST"])
+def historical_add(request, openplay_id, player_id):
+    openplay = get_object_or_404(OpenPlay.objects.select_related("venue"), pk=openplay_id)
+    player = get_object_or_404(Player.objects.select_related("user"), pk=player_id)
+    form = ReasonForm(request.POST if request.method == "POST" else None)
+    status = 200
+    if request.method == "POST":
+        if form.is_valid():
+            try:
+                add_historical_attendance(
+                    openplay_id=openplay.pk, player_id=player.pk, actor=request.user,
+                    reason=form.cleaned_data["reason"],
+                )
+            except ValidationError as error:
+                form.add_error(None, _error_text(error))
+                status = 409
+            else:
+                messages.success(request, "Historical attendance added. Loyalty has been reconciled.")
+                return redirect("organizer:player", player_id=player.pk)
+        else:
+            status = 400
+    existing = Attendance.objects.filter(openplay=openplay, player=player).first()
+    return render(request, "organizer/historical_add.html", {
+        "openplay": openplay, "player": player, "attended": openplays_attended(player),
+        "form": form, "existing": existing,
+        "can_add": openplay.status == OpenPlay.Status.COMPLETED and existing is None,
     }, status=status)
 
 

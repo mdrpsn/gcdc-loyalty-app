@@ -1,0 +1,23 @@
+{% extends "organizer/base.html" %}
+{% block title %}Confirm historical attendance · Got Cha Dink Club{% endblock %}
+{% block organizer_content %}
+<a class="back-link" href="{% url 'organizer:historical_search' openplay.pk %}">← Find another player</a>
+<div class="page-heading"><p class="eyebrow">Admin correction</p><h1>Add historical attendance</h1></div>
+<div class="compare-grid">
+  <section class="card confirm-card" aria-label="OpenPlay"><p class="eyebrow">OpenPlay</p><h2>{{ openplay }}</h2>
+    <ul><li>{{ openplay.venue.name }}</li><li>{{ openplay.starts_at|club_time:"D, M j, Y · g:i A" }}</li><li>Status: <strong>{{ openplay.get_status_display }}</strong></li></ul></section>
+  <section class="card confirm-card" aria-label="Player"><p class="eyebrow">Player</p><h2>{{ player.display_name }}</h2>
+    <ul><li>OpenPlays Attended now: <strong>{{ attended }}</strong></li><li>{% if player.user_id %}{{ player.user.email }}{% elif player.contact_email %}{{ player.contact_email }} · provisional{% else %}{{ player.phone|default:"—" }}{% endif %}</li></ul></section>
+</div>
+{% if openplay.status != 'COMPLETED' %}<p class="notice warning" role="alert">Historical attendance can be added only to a completed OpenPlay.</p>{% endif %}
+{% if existing %}
+<p class="notice warning" role="alert">Attendance is already recorded for this player: <strong>{{ existing.get_status_display }}</strong>.
+  {% if existing.status == 'VOID' %}Restore it with an attendance correction instead: <a href="{% url 'organizer:correct' existing.pk %}">open the correction</a>.{% else %}Nothing needs to be added.{% endif %}</p>
+{% endif %}
+{% if form.non_field_errors %}<p class="notice error" role="alert">{{ form.non_field_errors }}</p>{% endif %}
+{% if can_add %}
+<section class="card confirm-card"><p>Use this only when the player attended but was not recorded. It adds <strong>Valid</strong> attendance at the session start, marked as a historical correction, and reconciles the player's rewards. The reason is saved in the audit log.</p>
+  <form method="post" class="stack">{% csrf_token %}<label for="id_reason">Reason for audit</label>{{ form.reason }}{{ form.reason.errors }}<button class="button primary" type="submit">Add attendance</button></form>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "organizer/base.html" %}
+{% block title %}Add historical attendance · Got Cha Dink Club{% endblock %}
+{% block organizer_content %}
+<a class="back-link" href="{% url 'organizer:session' openplay.pk %}">← {{ openplay }}</a>
+<div class="page-heading"><p class="eyebrow">Admin correction</p><h1>Add historical attendance</h1><p>{{ openplay.venue.name }} · {{ openplay.starts_at|club_time:"D, M j, Y · g:i A" }} · {{ openplay.get_status_display }}</p></div>
+{% if openplay.status != 'COMPLETED' %}
+<p class="notice warning" role="alert">Historical attendance can be added only to a completed OpenPlay. Complete the session first.</p>
+{% else %}
+<section class="card search-panel"><form method="get" class="search-form"><label for="player-search">Find the player: name, phone, or email</label><div class="search-controls"><input id="player-search" name="q" type="search" minlength="2" maxlength="100" value="{{ query }}" required><button class="button primary" type="submit">Search</button></div></form></section>
+{% if query %}<section class="roster-section"><h2>Results</h2><div class="card roster-list">
+  {% for result in results %}<article class="roster-row"><div class="roster-identity"><strong>{{ result.player.display_name }}</strong><span class="muted">{% if result.player.user_id %}{{ result.player.user.email }}{% elif result.player.contact_email %}{{ result.player.contact_email }} · provisional{% else %}{{ result.player.phone }}{% endif %}</span>
+      {% if result.attendance %}<span class="state {% if result.attendance.status == 'VALID' %}checked{% else %}void{% endif %}">Already recorded: {{ result.attendance.get_status_display }}</span>{% endif %}</div>
+    <a class="button {% if result.attendance %}secondary{% else %}primary{% endif %}" href="{% url 'organizer:historical_add' openplay.pk result.player.pk %}">{% if result.attendance %}View{% else %}Add attendance{% endif %}</a></article>
+  {% empty %}<p class="empty-inline">No matching players.</p>{% endfor %}
+</div></section>{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "player/base.html" %}
+{% load tz %}
+{% block title %}Upcoming OpenPlays · Got Cha Dink Club{% endblock %}
+{% block player_content %}
+{% get_current_timezone as club_timezone %}
+<div class="page-heading"><p class="eyebrow">Get on court</p><h1>Upcoming OpenPlays</h1><p>Register ahead of time, or join as a walk-in when the club allows it. Times shown in {{ club_timezone }}.</p></div>
+<div class="session-list">
+{% for session in sessions %}
+<article class="card player-session">
+  <div><p class="eyebrow">{{ session.starts_at|date:"D, M j" }}</p><h2>OpenPlay at {{ session.venue.name }}</h2>
+    <p>{{ session.starts_at|club_time:"M j, Y · g:i A" }} – {{ session.ends_at|club_time:"g:i A" }} · {{ session.venue.name }}</p>
+    <p class="status-note">{% if session.member_registration_status == 'ACTIVE' %}Registered{% elif session.member_registration_status == 'CANCELLED' %}Registration cancelled{% else %}Not registered{% endif %}</p>
+    </div>
+  {% if session.member_can_register %}
+    {% if session.member_registration_status == 'ACTIVE' %}<form method="post" action="{% url 'player:cancel' session.pk %}">{% csrf_token %}<button class="button secondary" type="submit">Cancel registration</button></form>
+    {% else %}<form method="post" action="{% url 'player:register' session.pk %}">{% csrf_token %}<button class="button primary" type="submit">Register</button></form>{% endif %}
+  {% endif %}
+</article>
+{% empty %}<section class="card empty"><h2>No upcoming OpenPlays</h2><p>Check back when the club schedules its next session.</p></section>{% endfor %}
+</div>
+{% if page.has_other_pages %}<nav class="pagination" aria-label="OpenPlay pages">{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+{% endblock %}

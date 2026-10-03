@@ -1,0 +1,45 @@
+:root { background:#f6f6ee; color:#17343b }
+.player-header { border-bottom:4px solid #baf04f }
+.player-shell { max-width:1080px }
+.player-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px }
+.player-grid .card { padding:24px }
+.stat-hero { background:#173b37; color:#fff; grid-row:span 2 }
+.stat-hero .eyebrow { color:#c7f37a }
+.stat-hero a { color:#d6f7a0; font-weight:700 }
+.big-number { font-size:clamp(5rem,16vw,10rem); line-height:1; font-weight:900; letter-spacing:-.09em; margin:18px 0 28px }
+.player-card h2 { margin-bottom:14px }
+.progress-name { font-weight:800; margin-bottom:12px }
+.progress-name span { display:block; font-weight:400; color:#526870; font-size:.9rem }
+progress { display:block; width:100%; height:18px; accent-color:#8cbd2d; margin:12px 0 }
+.status-note { display:inline-block; border-radius:8px; padding:5px 9px; background:#e9f4cc; color:#294d25; font-size:.84rem; font-weight:800 }
+.status-note.pending { background:#fff0c2; color:#654600 }
+.status-note.invalid { background:#f8e5e0; color:#843b2b }
+.highlight-value { font-size:1.7rem; font-weight:850; color:#285c35 }
+.compact-reward,.badge-item { display:flex; flex-direction:column; gap:3px; padding:10px 0; border-bottom:1px solid #e1e9da }
+.compact-reward span,.badge-item span { color:#526870 }
+.player-cta { margin:26px 0 }
+.player-session,.history-row,.reward-history { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px }
+.player-session h2,.history-row h2,.reward-history h3 { margin:0 0 6px }
+.player-session p,.history-row p,.reward-history p { margin:4px 0; color:#526870 }
+.player-session form { flex-shrink:0 }
+.reward-section { margin:0 0 32px; display:grid; gap:10px }
+.reward-section h2 { margin:0 0 2px }
+.reward-history { align-items:flex-start }
+.reward-history>div { min-width:0 }
+.profile-card { max-width:620px; padding:24px }
+.profile-card .stack { display:grid; gap:8px; margin-top:24px }
+.profile-card .button { margin-top:8px; justify-self:start }
+.pagination { display:flex; gap:18px; justify-content:center; padding:26px 0 }
+.pagination a { font-weight:800 }
+@media(max-width:700px) {
+  .player-header .header-inner { gap:8px }
+  .player-nav { justify-content:flex-start; flex-wrap:wrap; gap:2px 14px }
+  .player-nav a,.player-nav button { min-height:44px; display:inline-flex; align-items:center }
+  .player-grid { grid-template-columns:1fr; gap:12px }
+  .player-grid .card { padding:20px }
+  .stat-hero { grid-row:auto }
+  .big-number { font-size:6rem }
+  .player-session,.history-row,.reward-history { flex-direction:column; align-items:stretch; padding:18px }
+  .player-session form,.player-session .button { width:100% }
+  .profile-card { padding:20px }
+}

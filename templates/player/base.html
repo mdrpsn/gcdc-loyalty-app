@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load static %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'club/css/player.css' %}">{% endblock %}
+{% block body %}
+<header class="site-header player-header"><div class="header-inner">
+  <a class="brand" href="{% url 'player:home' %}"><span class="brand-mark" aria-hidden="true">●</span> Got Cha Dink <strong>Club</strong></a>
+  <nav class="nav-links player-nav" aria-label="Player navigation">
+    <a href="{% url 'player:home' %}">Home</a>
+    <a href="{% url 'player:openplays' %}">OpenPlays</a>
+    <a href="{% url 'player:attendance' %}">Attendance</a>
+    <a href="{% url 'player:rewards' %}">Rewards</a>
+    <a href="{% url 'player:profile' %}">Profile</a>
+    <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="nav-button" type="submit">Sign out</button></form>
+  </nav>
+</div></header>
+<main class="page-shell player-shell">
+  {% include "organizer/_messages.html" %}
+  {% block player_content %}{% endblock %}
+</main>
+{% endblock %}

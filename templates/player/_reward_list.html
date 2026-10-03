@@ -1,0 +1,8 @@
+{% for reward in rewards %}
+<article class="card reward-history"><div><h3>{{ reward.terms_snapshot.name }}</h3><p>Earned {{ reward.earned_at|date:"M j, Y" }}</p></div>
+<div><strong class="status-note {% if reward.status == 'REVOKED' %}invalid{% endif %}">{{ reward.get_status_display }}</strong>
+  {% for benefit in reward.terms_snapshot.benefits %}<p>{{ benefit.description }}</p>{% endfor %}
+  {% if reward.status == 'REDEEMED' %}<p>Redeemed {{ reward.redemption.redeemed_at|club_time:"M j, Y · g:i A" }}{% if reward.redemption.openplay %} for OpenPlay at {{ reward.redemption.openplay.venue.name }}{% endif %}.</p>{% endif %}
+  {% if reward.status == 'REVOKED' %}<p>This reward is currently unavailable.</p>{% endif %}
+</div></article>
+{% empty %}<p class="card empty-inline">None yet.</p>{% endfor %}

@@ -1,0 +1,14 @@
+{% extends "player/base.html" %}
+{% block title %}My profile · Got Cha Dink Club{% endblock %}
+{% block player_content %}
+<div class="page-heading"><p class="eyebrow">Your membership</p><h1>{% if player %}My profile{% else %}Set up your player profile{% endif %}</h1></div>
+<section class="card profile-card"><p><strong>Login email</strong><br>{{ request.user.email }}</p>
+  <p class="muted">Your account email is your login identity. Ask a club administrator about changing or linking an existing walk-in record.</p>
+  {% if not player %}<p>Creating a profile will not automatically claim a walk-in record, even if its contact details match.</p>{% endif %}
+  <form method="post" class="stack">{% csrf_token %}{{ form.non_field_errors }}
+    <label for="{{ form.display_name.id_for_label }}">Display name</label>{{ form.display_name }}{{ form.display_name.errors }}
+    <label for="{{ form.phone.id_for_label }}">Phone (optional)</label>{{ form.phone }}{{ form.phone.errors }}
+    <button class="button primary" type="submit">{% if player %}Save profile{% else %}Create profile{% endif %}</button>
+  </form>
+</section>
+{% endblock %}

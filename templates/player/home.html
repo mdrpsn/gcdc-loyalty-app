@@ -1,0 +1,40 @@
+{% extends "player/base.html" %}
+{% block title %}My club · Got Cha Dink Club{% endblock %}
+{% block player_content %}
+<div class="page-heading"><p class="eyebrow">My club</p><h1>Hi, {{ player.display_name }}</h1><p>Every OpenPlay counts.</p></div>
+<div class="player-grid">
+  <section class="card stat-hero" aria-labelledby="attendance-title">
+    <p class="eyebrow">Your court time</p><h2 id="attendance-title">OpenPlays Attended</h2>
+    <p class="big-number">{{ summary.openplays_attended }}</p>
+    <a href="{% url 'player:attendance' %}">View attendance history →</a>
+  </section>
+  <section class="card player-card" aria-labelledby="progress-title">
+    <p class="eyebrow">Next reward</p><h2 id="progress-title">Progress</h2>
+    {% if summary.next_milestone %}
+      <p class="progress-name">{{ summary.next_milestone.name }} <span>at {{ summary.next_milestone.threshold }} OpenPlays</span></p>
+      <progress value="{{ progress.percent }}" max="100" aria-label="Progress toward {{ summary.next_milestone.name }}">{{ progress.percent }}%</progress>
+      {% if progress.pending_completion %}<p class="status-note pending">Reward pending session completion</p>
+      {% else %}<p>{{ progress.immediate_remaining }} more OpenPlay{{ progress.immediate_remaining|pluralize }} to this milestone.</p>{% endif %}
+    {% else %}<p class="status-note">No further milestone configured</p>{% endif %}
+    <p class="muted">Check-in updates OpenPlays Attended immediately. Rewards become available after the session is completed.</p>
+  </section>
+  <section class="card player-card" aria-labelledby="available-title">
+    <p class="eyebrow">Ready to use</p><h2 id="available-title">Available reward</h2>
+    {% for reward in available_rewards %}
+      <div class="compact-reward"><strong>{{ reward.terms_snapshot.name }}</strong>
+      {% for benefit in reward.terms_snapshot.benefits %}<span>{{ benefit.description }}</span>{% endfor %}</div>
+    {% empty %}<p>No available reward yet. Keep playing!</p>{% endfor %}
+    <a href="{% url 'player:rewards' %}">View reward history →</a>
+  </section>
+  <section class="card player-card" aria-labelledby="level-title"><p class="eyebrow">Club level</p><h2 id="level-title">Current loyalty level</h2><p class="highlight-value">{{ summary.current_level.name|default:"Not configured" }}</p></section>
+  <section class="card player-card" aria-labelledby="streak-title"><p class="eyebrow">Keep the rhythm</p><h2 id="streak-title">Your streak</h2>
+    <p><strong>Current Streak: {{ streaks.current }} OpenPlays</strong></p><p><strong>Best Streak: {{ streaks.best }} OpenPlays</strong></p>
+    <p class="muted">Completed sessions count. An attended walk-in counts too.</p>
+  </section>
+  <section class="card player-card" aria-labelledby="badges-title"><p class="eyebrow">Club moments</p><h2 id="badges-title">Badges</h2>
+    {% for badge in badges %}<div class="badge-item"><strong>{{ badge.name }}</strong><span>{{ badge.description }}</span></div>
+    {% empty %}<p>Your first badge starts with a completed OpenPlay.</p>{% endfor %}
+  </section>
+</div>
+<p class="player-cta"><a class="button primary" href="{% url 'player:openplays' %}">Find your next OpenPlay</a></p>
+{% endblock %}

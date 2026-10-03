@@ -1,0 +1,9 @@
+{% extends "organizer/base.html" %}
+{% block title %}Cancel OpenPlay{% endblock %}
+{% block organizer_content %}
+<a class="back-link" href="{% url 'organizer:session' openplay.pk %}">← Back to roster</a>
+<section class="card confirm-card"><p class="eyebrow">Session cancellation</p><h1>Cancel {{ openplay }}</h1><p>{{ openplay.starts_at|club_time:"D, M j · g:i A" }} · {{ openplay.venue.name }}</p>
+  <p>Attendance history remains visible. Loyalty eligibility will be reconciled.</p>
+  <form method="post" class="stack">{% csrf_token %}{{ form.non_field_errors }}<label for="id_reason">Cancellation reason</label>{{ form.reason }}{{ form.reason.errors }}<button class="button danger" type="submit">Confirm cancellation</button></form>
+</section>
+{% endblock %}

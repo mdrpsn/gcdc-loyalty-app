@@ -1,0 +1,13 @@
+<article class="roster-row">
+  <div class="roster-identity"><strong><a href="{% url 'organizer:player' result.player.pk %}">{{ result.player.display_name }}</a></strong>
+    <span class="muted">{% if result.registered %}Registered for this OpenPlay{% else %}Existing Player · not registered{% endif %}</span>
+    {% if result.attendance and result.attendance.status == 'VALID' %}<span class="state checked">✓ Checked in {{ result.attendance.checked_in_at|club_time:"g:i A" }}</span>
+    {% elif result.attendance and result.attendance.status == 'VOID' %}<span class="state void">Void attendance · Admin review</span>{% endif %}
+    {% if result.player.phone %}<small>{{ result.player.phone }}</small>{% endif %}
+  </div>
+  {% if openplay.status == 'SCHEDULED' and not result.attendance %}
+  <form method="post" action="{% url 'organizer:check_in' openplay.pk result.player.pk %}">
+    {% csrf_token %}<input type="hidden" name="q" value="{{ query }}"><button class="button primary" type="submit" aria-label="Check in {{ result.player.display_name }}">Check in</button>
+  </form>
+  {% endif %}
+</article>

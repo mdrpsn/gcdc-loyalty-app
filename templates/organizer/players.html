@@ -1,0 +1,7 @@
+{% extends "organizer/base.html" %}
+{% block title %}Find players{% endblock %}
+{% block organizer_content %}
+<div class="page-heading"><p class="eyebrow">Club records</p><h1>Find a player</h1><p>Search by name, phone, or email.</p></div>
+<section class="card search-panel"><form method="get" class="search-form"><label for="player-search">Player search</label><div class="search-controls"><input id="player-search" name="q" type="search" minlength="2" maxlength="100" value="{{ query }}" required><button class="button primary" type="submit">Search</button></div></form></section>
+{% if query %}<section class="roster-section"><h2>Results</h2><div class="card roster-list">{% for player in players %}<a class="roster-row result-link" href="{% url 'organizer:player' player.pk %}"><strong>{{ player.display_name }}</strong><span>{% if player.user_id %}{{ player.user.email }}{% elif player.contact_email %}{{ player.contact_email }}{% else %}{{ player.phone }}{% endif %}</span></a>{% empty %}<p class="empty-inline">No matching Players.</p>{% endfor %}</div></section>{% endif %}
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="{% url 'organizer:home' %}"><span class="brand-mark" aria-hidden="true">●</span> Got Cha Dink <strong>Club</strong></a>
+    <nav aria-label="Organizer navigation" class="nav-links">
+      <a href="{% url 'organizer:home' %}">OpenPlays</a>
+      <a href="{% url 'organizer:players' %}">Players</a>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="nav-button" type="submit">Sign out</button></form>
+    </nav>
+  </div>
+</header>
+<main class="page-shell">
+  {% include "organizer/_messages.html" %}
+  {% block organizer_content %}{% endblock %}
+</main>
+{% endblock %}

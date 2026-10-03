@@ -1,0 +1,18 @@
+{% extends "organizer/base.html" %}
+{% block title %}{{ player.display_name }} · Club record{% endblock %}
+{% block organizer_content %}
+<a class="back-link" href="{% url 'organizer:players' %}">← Player search</a>
+<div class="page-heading"><p class="eyebrow">Player record</p><h1>{{ player.display_name }}</h1><p>{% if player.user_id %}{{ player.user.email }}{% elif player.contact_email %}{{ player.contact_email }} <span class="muted">· provisional</span>{% endif %}{% if player.phone %} · {{ player.phone }}{% endif %}</p></div>
+<section class="score-strip" aria-label="Loyalty progress"><div><strong>{{ summary.openplays_attended }}</strong><span>OpenPlays Attended</span></div><div><strong>{% if summary.current_level %}{{ summary.current_level.name }}{% else %}—{% endif %}</strong><span>Current level</span></div><div><strong>{{ summary.completed_attendances }}</strong><span>Completed attendances</span></div></section>
+{% if summary.openplays_attended > summary.completed_attendances %}<p class="notice warning">Recent check-ins count toward attendance. New rewards become available after those OpenPlays are completed.</p>{% endif %}
+<section class="subsection"><h2>Rewards</h2><div class="card reward-list">
+  {% for issuance in rewards %}<article class="reward-row"><div><strong>{{ issuance.terms_snapshot.name }}</strong><span class="state {% if issuance.status == 'AVAILABLE' %}checked{% elif issuance.status == 'REVOKED' %}void{% else %}waiting{% endif %}">{{ issuance.get_status_display }}</span><ul>{% for benefit in issuance.terms_snapshot.benefits %}<li>{{ benefit.description }}</li>{% endfor %}</ul></div>
+    {% if issuance.status == 'AVAILABLE' %}<a class="button primary" href="{% url 'organizer:redeem' player.pk issuance.pk %}">Redeem</a>{% endif %}
+  </article>{% empty %}<p class="empty-inline">No earned rewards yet.</p>{% endfor %}
+</div></section>
+<section class="subsection"><h2>Recent attendance</h2><div class="card roster-list">
+  {% for attendance in history %}<article class="roster-row"><div class="roster-identity"><strong>{{ attendance.openplay }}</strong><span class="muted">{{ attendance.openplay.starts_at|club_time:"D, M j · g:i A" }}</span><span class="state {% if attendance.status == 'VALID' %}checked{% else %}void{% endif %}">{{ attendance.get_status_display }} · {{ attendance.openplay.get_status_display }}</span></div>
+    {% if is_admin %}<a class="button secondary" href="{% url 'organizer:correct' attendance.pk %}">Correct</a>{% endif %}
+  </article>{% empty %}<p class="empty-inline">No attendance recorded.</p>{% endfor %}
+</div></section>
+{% endblock %}

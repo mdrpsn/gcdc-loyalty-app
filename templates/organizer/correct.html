@@ -1,0 +1,8 @@
+{% extends "organizer/base.html" %}
+{% block title %}Correct attendance{% endblock %}
+{% block organizer_content %}
+<a class="back-link" href="{% url 'organizer:player' attendance.player_id %}">← {{ attendance.player.display_name }}</a>
+<section class="card confirm-card"><p class="eyebrow">Admin correction</p><h1>Correct attendance</h1><p>{{ attendance.player.display_name }} · {{ attendance.openplay }}</p><p>Current state: <strong>{{ attendance.get_status_display }}</strong></p>
+  <form method="post" class="stack">{% csrf_token %}{{ form.non_field_errors }}<label for="id_action">Correction action</label>{{ form.action }}{{ form.action.errors }}<label for="id_reason">Reason for audit</label>{{ form.reason }}{{ form.reason.errors }}<button class="button danger" type="submit">Confirm correction</button></form>
+</section>
+{% endblock %}

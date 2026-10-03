@@ -57,7 +57,7 @@ Identity: authentication is `User.email`. Walk-ins are unlinked Players; signup 
 
 ## Status (as of 2026-10-04)
 
-`origin/main` is at `0736f97`. Local `main` has four unpushed commits on top of it: `7c5d686` (ADMIN identity linking), `cbdd4fd` (this file), `de70964` (ADMIN audit review), and the ADMIN historical-attendance screen (see `git log`). Nothing is pushed until the owner says so. The Render staging gate is parked: it needs the staging URL, deploy logs, and the environment-variable checklist, and no staging evidence exists yet. Local development continues first.
+Run `git log origin/main..HEAD` to see unpushed work; push only when the owner authorizes it. The Render staging gate is parked pending the staging URL, the deploy logs, and the environment-variable checklist (names only); no staging evidence exists yet. The loyalty-configuration editor is the only remaining service-only V1 gap. Local development continues first.
 
 ## Known V1 gaps (service-only, no screen)
 

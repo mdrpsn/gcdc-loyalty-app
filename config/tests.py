@@ -112,3 +112,24 @@ class ProductionConfigurationTests(SimpleTestCase):
             env=encrypted_remote, capture_output=True, text=True, check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_production_password_hashing_is_pbkdf2_and_never_the_test_hasher(self):
+        env = {**os.environ, "DJANGO_SETTINGS_MODULE": "config.settings.production",
+               "DJANGO_SECRET_KEY": "x" * 60, "DB_NAME": "unused", "DB_USER": "unused",
+               "DB_PASSWORD": "unused", "DB_HOST": "127.0.0.1", "DB_PORT": "5432", "DB_SSLMODE": "disable",
+               "DJANGO_TIME_ZONE": "America/New_York", "DJANGO_ALLOWED_HOSTS": "club.example.invalid",
+               "DJANGO_CSRF_TRUSTED_ORIGINS": "https://club.example.invalid",
+               "EMAIL_HOST": "smtp.example.invalid", "EMAIL_PORT": "587",
+               "EMAIL_HOST_USER": "test@example.invalid", "EMAIL_HOST_PASSWORD": "not-real",
+               "DEFAULT_FROM_EMAIL": "test@example.invalid"}
+        code = (
+            "import json, sys; from django.conf import settings; "
+            "print(json.dumps({'hashers': settings.PASSWORD_HASHERS, "
+            "'test_settings_loaded': 'config.settings.test' in sys.modules}))"
+        )
+        result = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertEqual(data["hashers"][0], "django.contrib.auth.hashers.PBKDF2PasswordHasher")
+        self.assertFalse([hasher for hasher in data["hashers"] if "MD5" in hasher])
+        self.assertFalse(data["test_settings_loaded"])

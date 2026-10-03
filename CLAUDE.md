@@ -15,14 +15,14 @@ Explicitly **no** SPA, REST API, Redis, Celery, WebSockets, or extra services. L
 PostgreSQL must be running first (README: "Local PostgreSQL on Windows", port 55432). `.env` is git-ignored and holds local credentials; copy names from `.env.example`. Never print or commit its values.
 
 ```
-uv run --locked --env-file .env python manage.py test            # full suite (~3 min)
+uv run --locked --env-file .env python manage.py test --settings=config.settings.test   # full suite (~35 s)
 uv run --locked --env-file .env python manage.py check
 uv run --locked --env-file .env python manage.py makemigrations --check --dry-run
 uv run --locked --env-file .env python manage.py migrate --check
 uv lock --check
 ```
 
-Tests create `test_<DB_NAME>`, so the DB role needs CREATEDB. The full suite reports 1 skipped test: the production smoke. Run it separately: set the production variables (synthetic test values only, see `docs/RENDER_DEPLOYMENT.md`), run `collectstatic --noinput` with `DJANGO_SETTINGS_MODULE=config.settings.production`, then `manage.py test config.test_production_smoke --settings=config.settings.production`. Gunicorn does not run on Windows; WSGI is only verifiable on Render/Linux. Production reads individual `DB_*` variables (not `DATABASE_URL`) and needs all `EMAIL_*` at boot.
+Tests create `test_<DB_NAME>`, so the DB role needs CREATEDB. `config.settings.test` is development settings plus a fast password hasher, for tests only: never import it from production or `base.py`, and never run the app with it. A plain `manage.py test` also works but takes about 5 minutes because PBKDF2 hashing dominates. The full suite reports 1 skipped test: the production smoke. It must still run on production settings with the default PBKDF2 hasher, so the real login path stays covered. Run it separately: set the production variables (synthetic test values only, see `docs/RENDER_DEPLOYMENT.md`), run `collectstatic --noinput` with `DJANGO_SETTINGS_MODULE=config.settings.production`, then `manage.py test config.test_production_smoke --settings=config.settings.production`. Gunicorn does not run on Windows; WSGI is only verifiable on Render/Linux. Production reads individual `DB_*` variables (not `DATABASE_URL`) and needs all `EMAIL_*` at boot.
 
 ## Roles (enforced server-side; hiding UI is not authorization)
 

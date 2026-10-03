@@ -227,6 +227,8 @@ class AuditDetailsContainNoSecretsTests(TestCase):
         reconcile_player_loyalty(walk_in, actor=admin)
         issuance = walk_in.reward_issuances.get()
         redeem_reward(issuance_id=issuance.pk, player_id=walk_in.pk, actor=organizer)
+        # Snapshot every hash that exists before the reset changes one; a leak of an old hash must be caught too.
+        seen_hashes = set(User.objects.values_list("password", flat=True))
         self.client.post(reverse("password_reset"), {"email": member.email})
         path = re.search(r"http://testserver(/password-reset/[^\s]+)", mail.outbox[0].body).group(1)
         redirect = self.client.get(path)
@@ -256,3 +258,9 @@ class AuditDetailsContainNoSecretsTests(TestCase):
         for secret in ("organizer-pass-123", "admin-pass-123", "member-pass-123", "brand-new-pass-456", token):
             self.assertNotIn(secret, blob)
         self.assertNotIn("pbkdf2", blob)
+        # Hasher-independent: no user's stored password hash may appear in any audit details.
+        seen_hashes |= set(User.objects.values_list("password", flat=True))
+        self.assertGreaterEqual(len(seen_hashes), 4)  # three originals plus the member's new hash
+        for stored_hash in seen_hashes:
+            self.assertTrue(stored_hash)
+            self.assertNotIn(stored_hash, blob)

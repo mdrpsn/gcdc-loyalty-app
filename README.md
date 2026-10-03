@@ -64,12 +64,12 @@ The health endpoint is `GET /health/`. It returns HTTP 200 with `{"status":"ok"}
 ## Tests and migration checks
 
 ```powershell
-uv run --locked --env-file .env python manage.py test
+uv run --locked --env-file .env python manage.py test --settings=config.settings.test
 uv run --locked --env-file .env python manage.py makemigrations --check --dry-run
 uv run --locked --env-file .env python manage.py migrate --check
 ```
 
-Tests create a temporary PostgreSQL database; the test suite asserts that it is connected to PostgreSQL. Project migrations create the custom User, Phase 2 domain models, and Phase 3 loyalty models. Data migrations seed the ORGANIZER and ADMIN groups and the initial loyalty configuration. Django's built-in applications supply their own migrations.
+`config.settings.test` is development settings with a fast password hasher (the full suite then takes seconds instead of minutes); it is for tests only. The production-settings smoke test must still run on production settings so the real PBKDF2 login path stays covered (see the launch checklist). Tests create a temporary PostgreSQL database; the test suite asserts that it is connected to PostgreSQL. Project migrations create the custom User, Phase 2 domain models, and Phase 3 loyalty models. Data migrations seed the ORGANIZER and ADMIN groups and the initial loyalty configuration. Django's built-in applications supply their own migrations.
 
 ## Current domain operations
 

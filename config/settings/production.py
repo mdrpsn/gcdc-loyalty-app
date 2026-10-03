@@ -42,7 +42,14 @@ for origin in CSRF_TRUSTED_ORIGINS:
             or not valid_port):
         raise ImproperlyConfigured("DJANGO_CSRF_TRUSTED_ORIGINS must contain explicit HTTPS origins")
 
-required_env("DB_SSLMODE")
+db_sslmode = required_env("DB_SSLMODE").lower()
+if db_sslmode not in {"disable", "allow", "prefer", "require", "verify-ca", "verify-full"}:
+    raise ImproperlyConfigured("DB_SSLMODE must be a PostgreSQL SSL mode")
+if DATABASES["default"]["HOST"].lower() not in {"localhost", "127.0.0.1", "::1"} and db_sslmode not in {
+    "require", "verify-ca", "verify-full"
+}:
+    raise ImproperlyConfigured("Remote PostgreSQL requires DB_SSLMODE=require or stronger")
+DATABASES["default"]["OPTIONS"]["sslmode"] = db_sslmode
 
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_AGE = 60 * 60 * 12

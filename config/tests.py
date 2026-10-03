@@ -98,6 +98,7 @@ class ProductionConfigurationTests(SimpleTestCase):
             ({"DJANGO_DEBUG": "true"}, "DEBUG cannot be enabled"),
             ({"EMAIL_USE_TLS": "false"}, "Exactly one"),
             ({"DJANGO_CSRF_TRUSTED_ORIGINS": "http://club.example.invalid"}, "explicit HTTPS origins"),
+            ({"DB_HOST": "db.example.invalid"}, "Remote PostgreSQL requires DB_SSLMODE=require or stronger"),
         ):
             result = subprocess.run(
                 [sys.executable, "-c", "import config.settings.production"],
@@ -105,3 +106,9 @@ class ProductionConfigurationTests(SimpleTestCase):
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(message, result.stderr)
+        encrypted_remote = {**env, "DB_HOST": "db.example.invalid", "DB_SSLMODE": "require"}
+        result = subprocess.run(
+            [sys.executable, "-c", "import config.settings.production"],
+            env=encrypted_remote, capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)

@@ -44,7 +44,7 @@ Fill in `.env` with local values. Generate `DJANGO_SECRET_KEY` rather than copyi
 python -c "import secrets; print(secrets.token_urlsafe(64))"
 ```
 
-Required development variables are `DJANGO_SECRET_KEY`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT`. For the PostgreSQL example above, use database `gcdc_dev`, user `gcdc_app`, host `127.0.0.1`, and port `55432`, with the password chosen during `createuser`. `DB_SSLMODE=disable` is suitable for that loopback-only server. `DJANGO_TIME_ZONE` defaults to UTC until the club timezone is decided. The `.env` file is ignored by Git; `.env.example` contains names only.
+Required development variables are `DJANGO_SECRET_KEY`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT`. For the PostgreSQL example above, use database `gcdc_dev`, user `gcdc_app`, host `127.0.0.1`, and port `55432`, with the password chosen during `createuser`. `DB_SSLMODE=disable` is suitable for that loopback-only server. Development defaults to UTC if `DJANGO_TIME_ZONE` is unset; set it to the owner-confirmed club timezone, `Asia/Manila`, when checking club-local dates and times. The `.env` file is ignored by Git; `.env.example` contains names only.
 
 The application reads process environment variables. `uv run --env-file .env` loads the local file without an extra application dependency. Direct `python manage.py` commands work if the same variables are already present in the shell.
 
@@ -91,7 +91,7 @@ At `/organizer/`, open today's session. The roster shows active registrations, v
 
 After the scheduled end, review counts on the completion confirmation page and explicitly complete the session. This calls the existing transactional domain service and reconciles rewards. Session cancellation requires a reason. The player lookup shows derived attendance, level, reward status, and recent history. Staff redeem an AVAILABLE reward against a selected OpenPlay; ADMIN users can void or restore historical attendance with an audit reason.
 
-Set `DJANGO_TIME_ZONE` to the club's actual operating timezone before using the organizer screens: today's list, displayed session times, and check-in times depend on it. The current development default is UTC until that decision is configured. The interface is server-rendered with responsive CSS and works without JavaScript.
+Set `DJANGO_TIME_ZONE=Asia/Manila` before using the organizer screens: today's list, displayed session times, and check-in times depend on it. Development still defaults to UTC when this variable is unset. The interface is server-rendered with responsive CSS and works without JavaScript.
 
 ## Player experience
 
@@ -103,6 +103,6 @@ Check-in increases OpenPlays Attended immediately, but milestone rewards become 
 
 Set `DJANGO_SETTINGS_MODULE=config.settings.production` in the hosting environment. Production requires explicit `DJANGO_SECRET_KEY`, database credentials and `DB_SSLMODE`, `DJANGO_ALLOWED_HOSTS`, HTTPS `DJANGO_CSRF_TRUSTED_ORIGINS`, a valid IANA `DJANGO_TIME_ZONE`, and SMTP settings. It rejects missing values and `DJANGO_DEBUG=true`; it forces HTTPS redirect and secure session/CSRF cookies. Set `DJANGO_TRUST_PROXY_SSL=true` only after verifying that the trusted proxy overwrites `X-Forwarded-Proto`. HSTS remains off until the real domain and every relevant subdomain have verified HTTPS. See the authoritative [launch checklist](docs/LAUNCH_READINESS.md#production-checklist) and HSTS sequence.
 
-The approved target is Render: one Python 3.14 WSGI web service and one paid Render PostgreSQL instance per environment, with separate staging and production resources. Gunicorn and WhiteNoise are locked dependencies. Render's build collects files into `staticfiles/`; WhiteNoise serves `/static/` from the WSGI service. The exact build, pre-deploy migration, start, health, and environment settings are in the [Render deployment guide](docs/RENDER_DEPLOYMENT.md). Plan and region, production domain, club timezone, sender address, and alert recipient still require explicit decisions. No Render service has been provisioned.
+The approved target is Render: one Python 3.14 WSGI web service and one paid Render PostgreSQL instance per environment, with separate staging and production resources in Singapore. Gunicorn and WhiteNoise are locked dependencies. Render's build collects files into `staticfiles/`; WhiteNoise serves `/static/` from the WSGI service. The exact build, pre-deploy migration, start, health, and environment settings are in the [Render deployment guide](docs/RENDER_DEPLOYMENT.md). Exact paid plans, production domain, staging sender address, and monitoring alert recipient still require explicit decisions. The approved club timezone is `Asia/Manila`, but it has not been configured on a hosted service. No Render service has been provisioned.
 
 Local reset emails are written to ignored `.local-emails/`; production uses Resend SMTP after sender verification. A repeatable local restore check is `uv run --locked --env-file .env python scripts/verify_local_restore.py`. Render PITR, offsite logical backups, Better Stack alerts, and real SMTP delivery are not configured yet.

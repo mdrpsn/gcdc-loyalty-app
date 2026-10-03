@@ -4,6 +4,14 @@
 
 Status meanings: **READY** = implemented and locally verified; **NOT CONFIGURED** = no real external resource or value exists; **REQUIRES EXTERNAL VERIFICATION** = code or procedure exists but must be tested against the selected service/domain/provider. No external dependency is marked READY based on a local test.
 
+## Local hardening verification (2026-10-04)
+
+**Locally verified:** `uv run --locked --env-file .env python manage.py test --verbosity 1` ran 109 PostgreSQL tests successfully (one skipped). `check`, `makemigrations --check --dry-run`, `migrate --check`, and `collectstatic --noinput --dry-run` passed. `uv lock --check` passed. With production settings and synthetic hostname/SMTP values, `collectstatic` and the two HTTPS-aware `config.test_production_smoke` tests passed; no email was sent. `check --deploy` reported only W004 because HSTS remains intentionally off until domain HTTPS is verified. The synthetic local dump/restore script passed and compared one user, one player, ten attendances, one issuance, one redemption, and 24 audit events. The PostgreSQL request suite includes a 101-player roster assertion of fewer than 20 queries.
+
+**Requires Render/staging verification:** Linux Gunicorn startup, proxy headers, external HTTPS and static responses, real SMTP delivery, monitoring and alert delivery, provider backups and isolated restore, and staging performance. The local computer session exposed no browser surface, so desktop and 390/430px visual journeys were not verified here; request and production-smoke tests do not replace that review.
+
+**Requires real-club pilot validation:** Organizer phone usability, operational identity checks, and the club's actual check-in and reward handling. These local checks are not a penetration test.
+
 ## Production checklist
 
 | Requirement | Status | Action/evidence required before launch |
@@ -13,7 +21,7 @@ Status meanings: **READY** = implemented and locally verified; **NOT CONFIGURED*
 | DJANGO_SECRET_KEY | NOT CONFIGURED | Generate a long random secret in the host secret manager; never use local .env |
 | DJANGO_ALLOWED_HOSTS | NOT CONFIGURED | Set explicit production hostnames, no wildcard |
 | DJANGO_CSRF_TRUSTED_ORIGINS | NOT CONFIGURED | Set explicit HTTPS origin(s) for the real domain |
-| DJANGO_TIME_ZONE | NOT CONFIGURED | Confirm club operating IANA timezone with organizers and set it explicitly |
+| DJANGO_TIME_ZONE | NOT CONFIGURED | Set owner-confirmed `Asia/Manila` explicitly on each hosted service and verify local display |
 | PostgreSQL credentials and DB_SSLMODE | NOT CONFIGURED | Provision managed database and restricted credentials; use provider-supported verified TLS mode |
 | Proxy/HTTPS configuration | REQUIRES EXTERNAL VERIFICATION | Confirm proxy removes client-supplied X-Forwarded-Proto, sets its own value, then set DJANGO_TRUST_PROXY_SSL=true; verify redirect and secure cookies |
 | SMTP credentials and DEFAULT_FROM_EMAIL | NOT CONFIGURED | Select provider and verify sender domain, TLS, delivery, bounces, and reset messages |
@@ -32,13 +40,13 @@ Status meanings: **READY** = implemented and locally verified; **NOT CONFIGURED*
 
 Set DJANGO_SETTINGS_MODULE=config.settings.production for the hosted process and release commands. Production fails startup if DJANGO_SECRET_KEY, DJANGO_TIME_ZONE, DJANGO_ALLOWED_HOSTS, DJANGO_CSRF_TRUSTED_ORIGINS, DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_SSLMODE, EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, or DEFAULT_FROM_EMAIL is absent. The timezone must resolve as an IANA zone. Hosts and CSRF origins must be explicit; trusted origins must be HTTPS. Production rejects DJANGO_DEBUG=true and forces DEBUG=False, HTTPS redirect, secure session and CSRF cookies, a 12-hour session lifetime, and browser-close expiry. Base settings never supply a secret or database fallback.
 
-For Render's same-region internal PostgreSQL hostname, set DB_SSLMODE=require: Render documents self-signed internal certificates, so verify-ca and verify-full are unavailable on that connection. The value disable is only for isolated local testing. Set DJANGO_TRUST_PROXY_SSL=true **only** after confirming that Render overwrites the X-Forwarded-Proto header. Otherwise an untrusted client could misrepresent request security. Render redirects public HTTP to HTTPS at its edge. Django redirects other insecure routes; /health/ alone is exempt so Render's private HTTP probe reaches the database check instead of passing on a 301.
+For Render's same-region internal PostgreSQL hostname, set DB_SSLMODE=require: Render documents self-signed internal certificates, so verify-ca and verify-full are unavailable on that connection. Production settings reject unencrypted SSL modes for non-loopback database hosts; `disable` is accepted only for isolated local testing. Set DJANGO_TRUST_PROXY_SSL=true **only** after confirming that Render overwrites the X-Forwarded-Proto header. Otherwise an untrusted client could misrepresent request security. Render redirects public HTTP to HTTPS at its edge. Django redirects other insecure routes; /health/ alone is exempt so Render's private HTTP probe reaches the database check instead of passing on a 301.
 
 Development writes password-reset messages to ignored .local-emails/ files. Treat those files as sensitive and remove them when no longer needed. Production uses Django SMTP and requires real credentials; no provider integration or delivery is verified. It requires exactly one of EMAIL_USE_TLS (default true for STARTTLS) and EMAIL_USE_SSL (default false for implicit TLS); EMAIL_TIMEOUT defaults to 10 seconds. Select the mode and port specified by the provider. Reset tokens expire after 24 hours, become unusable after the password changes, and are absent from AuditEvent details. Password changes and audit events commit together. Edge rate limiting is still mandatory: start with at most five login or reset POST attempts per 15 minutes per source IP and account identifier, review false positives for shared venue networks, and alert on sustained failure. The exact enforcement mechanism depends on the chosen proxy/provider; the application has no shared rate-limit store.
 
 Production emits JSON error logs to standard error with timestamp, level, logger, event, HTTP status, method, named route, and exception class when available. It deliberately omits raw message, exception value, URL/path, query, request body, headers, tokens, passwords, and database credentials. Capture these logs at the host with restricted access and retention. Configure proxy access logs and error reporting to redact reset-token URL paths, query strings, cookies, and request bodies; application formatting does not control provider logs. The /health/ endpoint checks database connectivity and logs a safe database_unavailable event on failure; it returns 503 without database details. Monitoring and alert routing are **not configured**.
 
-PostgreSQL stores aware UTC timestamps. DJANGO_TIME_ZONE drives club-local presentation and today's organizer list; the browser timezone does not choose displayed times. Session cards include timezone abbreviations to distinguish DST repeated clock times. There is no per-venue timezone. Confirm the actual club timezone before operating sessions.
+PostgreSQL stores aware UTC timestamps. DJANGO_TIME_ZONE drives club-local presentation and today's organizer list; the browser timezone does not choose displayed times. Session cards include timezone abbreviations to distinguish DST repeated clock times. There is no per-venue timezone. The owner confirmed `Asia/Manila`; it must still be set and verified in each hosted environment.
 
 ## HSTS and domain sequence
 
@@ -53,7 +61,7 @@ Local check --deploy with safe test values reports W004 while HSTS is zero. Enab
 
 ## Staging and release sequence
 
-1. Use the approved Render web/PostgreSQL, Resend SMTP, and Better Stack direction. Select the still-open plans, region, production domain, sender address, monitoring recipient, club timezone, and named operator/deputy. Create a separate staging environment as described in [Render deployment](RENDER_DEPLOYMENT.md).
+1. Use the approved Render web/PostgreSQL, Resend SMTP, and Better Stack direction. Use Singapore for both Render resources and `Asia/Manila` for the club timezone. Select the still-open exact plans, production domain, staging sender address, monitoring recipient, and named operator/deputy. Create a separate staging environment as described in [Render deployment](RENDER_DEPLOYMENT.md).
 2. Configure production values through the host secret manager. Give the runtime database role only required application privileges; use a separate test role for Django tests, which create a test_ database.
 3. Build from the repository with uv sync --locked. Run the full PostgreSQL suite, check, makemigrations --check --dry-run, migrate --check, and check --deploy against staging. The persistent HTTPS/CSRF workflow test is: uv run --locked --env-file .env python manage.py test config.test_production_smoke --settings=config.settings.production. Use only isolated test credentials and database rights for this command.
 4. Take a verified pre-migration backup. Render collects static assets during build and runs `uv run --locked --no-sync python manage.py migrate --noinput --settings=config.settings.production` as a separate pre-deploy command. WhiteNoise serves STATIC_ROOT at /static/ from the WSGI service.

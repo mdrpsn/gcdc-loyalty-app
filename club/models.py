@@ -90,6 +90,15 @@ class Venue(HistoricalModel):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                Lower("name"),
+                name="club_venue_name_ci_uniq",
+                violation_error_message="A venue with this name already exists.",
+            ),
+        ]
+
     def __str__(self):
         return self.name
 

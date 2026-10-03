@@ -10,9 +10,9 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.permissions import ADMIN, ORGANIZER
-from club.loyalty import reconcile_player_loyalty
+from club.loyalty import reconcile_player_loyalty, redeem_reward
 from club.models import Attendance, AuditEvent, OpenPlay, Player, Registration, RewardIssuance, RewardRedemption, Venue
-from club.services import void_attendance
+from club.services import restore_attendance, void_attendance
 
 
 class OrganizerRequestTests(TestCase):
@@ -299,6 +299,19 @@ class OrganizerRequestTests(TestCase):
         self.assertNotContains(response, ">Redeem</a>")
         response = self.client.get(self.url("redeem", self.player.pk, issuance.pk))
         self.assertContains(response, "Only an available reward", status_code=409)
+
+    def test_redeemed_reward_discrepancy_is_visible_to_staff_until_resolved(self):
+        self.history(10)
+        reconcile_player_loyalty(self.player, actor=self.admin)
+        issuance = RewardIssuance.objects.get(player=self.player)
+        redeem_reward(issuance_id=issuance.pk, player_id=self.player.pk, actor=self.organizer)
+        detail = self.url("player", self.player.pk)
+        self.assertNotContains(self.client.get(detail), "later corrections left this player below")
+        attendance = Attendance.objects.filter(player=self.player).first()
+        void_attendance(attendance_id=attendance.pk, actor=self.admin, reason="Incorrect check-in")
+        self.assertContains(self.client.get(detail), "later corrections left this player below")
+        restore_attendance(attendance_id=attendance.pk, actor=self.admin, reason="Verified")
+        self.assertNotContains(self.client.get(detail), "later corrections left this player below")
 
     def test_admin_correction_requires_reason_and_reconciles(self):
         self.history(10)

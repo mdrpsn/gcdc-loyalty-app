@@ -2,7 +2,7 @@
 
 ## Daily session
 
-1. Confirm today's OpenPlays and venue in `/organizer/`. A technical operator must schedule new sessions through the existing `create_openplay` service; there is no scheduling screen.
+1. Confirm today's OpenPlays and venue in `/organizer/`. Organizers and ADMINs schedule new sessions with **Schedule an OpenPlay** on that page, and add a venue first with **Add a venue** if none exists. Check the venue name before saving. There is no rename or deactivate screen; ask the technical operator to correct it. Enter start and end in the club timezone shown on the form. A clock time that is ambiguous or does not exist because of a daylight-saving change is rejected; choose an adjacent time. Check the session card afterward: there is no edit screen, so a wrong session is cancelled with a reason and rescheduled.
 2. Open the session roster on a phone. Search before adding a walk-in. Select an existing Player when found; create an unlinked walk-in only with name plus phone or provisional email.
 3. Tap **Check in** once for each attendee. A repeat tap leaves one Attendance; a VOID row requires ADMIN review. Registrations and unchecked players do not count.
 4. After the scheduled end, review checked-in and unchecked counts, then explicitly complete the session. Completion evaluates reward eligibility. Do not mark absent registrants present.

@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core import signing
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from django.db.models import Count, Q
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
@@ -17,14 +18,16 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from accounts.permissions import is_admin, require_admin, require_organizer
 
-from .forms import CorrectionForm, ReasonForm, RedemptionForm, WalkInForm
+from .forms import CorrectionForm, OpenPlayForm, ReasonForm, RedemptionForm, VenueForm, WalkInForm
 from .loyalty import get_loyalty_summary, redeem_reward
-from .models import Attendance, OpenPlay, Player, Registration, RewardIssuance
+from .models import Attendance, OpenPlay, Player, Registration, RewardIssuance, Venue
 from .services import (
     cancel_openplay,
     check_in,
     check_in_walk_in,
     complete_openplay,
+    create_openplay,
+    create_venue,
     find_players,
     find_walk_in_matches,
     restore_attendance,
@@ -220,6 +223,49 @@ def cancel_session(request, openplay_id):
             return redirect("organizer:session", openplay_id=openplay_id)
     return render(request, "organizer/confirm_cancel.html", {"openplay": openplay, "form": form},
                   status=400 if request.method == "POST" else 200)
+
+
+@organizer_view
+@require_http_methods(["GET", "POST"])
+def venue_new(request):
+    form = VenueForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            venue = create_venue(name=form.cleaned_data["name"], actor=request.user)
+        except ValidationError as error:
+            form.add_error(None, _error_text(error))
+        except IntegrityError:
+            # A simultaneous submit passed validation; the database constraint still held.
+            form.add_error(None, "A venue with this name already exists.")
+        else:
+            messages.success(request, f"Venue “{venue.name}” created. Schedule an OpenPlay there.")
+            return redirect("organizer:openplay_new")
+    return render(request, "organizer/schedule_form.html", {
+        "form": form, "title": "Add a venue", "submit_label": "Create venue",
+    }, status=400 if request.method == "POST" else 200)
+
+
+@organizer_view
+@require_http_methods(["GET", "POST"])
+def openplay_new(request):
+    form = OpenPlayForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        data = form.cleaned_data
+        try:
+            openplay = create_openplay(
+                venue_id=data["venue"].pk, starts_at=data["starts_at"], ends_at=data["ends_at"],
+                actor=request.user,
+            )
+        except (ValidationError, Venue.DoesNotExist) as error:
+            form.add_error(None, _error_text(error) if isinstance(error, ValidationError) else "Venue not found.")
+        else:
+            messages.success(request, "OpenPlay scheduled.")
+            return redirect("organizer:session", openplay_id=openplay.pk)
+    return render(request, "organizer/schedule_form.html", {
+        "form": form, "title": "Schedule an OpenPlay", "submit_label": "Schedule OpenPlay",
+        "show_venue_link": not form.fields["venue"].queryset.exists(),
+        "time_zone": timezone.get_current_timezone_name(),
+    }, status=400 if request.method == "POST" else 200)
 
 
 @organizer_view

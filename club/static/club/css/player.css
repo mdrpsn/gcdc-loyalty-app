@@ -30,7 +30,11 @@
   white-space:nowrap
 }
 .appbar-brand strong {
-  color:var(--accent-ink)
+  color:var(--brand);
+  text-decoration:underline;
+  text-decoration-color:var(--accent);
+  text-decoration-thickness:3px;
+  text-underline-offset:4px
 }
 .user-menu {
   position:relative
@@ -145,7 +149,7 @@
 }
 .tabbar a[aria-current="page"] .tab-icon {
   background:var(--accent);
-  box-shadow:0 0 0 4px rgba(220,108,58,.28)
+  box-shadow:0 0 0 4px rgba(255,163,102,.28)
 }
 .tabbar a:hover {
   color:var(--brand)
@@ -381,7 +385,7 @@ a.tile:hover {
   padding:5px 10px;
   border-radius:8px;
   background:var(--accent-tint);
-  color:var(--accent-ink);
+  color:var(--brand);
   font-size:.82rem;
   font-weight:800
 }
@@ -415,10 +419,10 @@ progress {
   appearance:none;
   display:block;
   width:100%;
-  height:12px;
+  height:16px;
   margin:12px 0;
   overflow:hidden;
-  border:0;
+  border:2px solid var(--brand);
   border-radius:99px;
   background:var(--track,#e3e8f4)
 }
@@ -435,7 +439,9 @@ progress::-moz-progress-bar {
   border-radius:99px
 }
 .hero progress,.panel-dark progress {
-  --track:rgba(255,255,255,.2)
+  --track:rgba(255,255,255,.2);
+  height:12px;
+  border-color:transparent
 }
 
 /* ---- Badges ---- */
@@ -598,7 +604,7 @@ progress::-moz-progress-bar {
 }
 .reward-card.is-locked progress {
   --track:#c9d1e6;
-  height:8px
+  height:14px
 }
 .level-card h2 {
   font-size:1.6rem

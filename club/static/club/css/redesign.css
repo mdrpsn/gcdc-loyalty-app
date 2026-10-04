@@ -11,7 +11,7 @@ h1,h2,h3{letter-spacing:-.035em}
 .button.primary{color:#172036}.button.secondary{border:1px solid var(--line);color:var(--brand)}
 .card{border-radius:14px;box-shadow:var(--shadow)}
 .stack{gap:10px}.stack label{margin-top:8px}.stack input:not([type=checkbox]),.stack select,.stack textarea,.search-panel input{border-width:1px;border-color:#cdd3dc;border-radius:8px;background:#fff}
-.stack input:focus,.search-panel input:focus{box-shadow:0 0 0 3px #dc6c3a1a}
+.stack input:focus,.search-panel input:focus{box-shadow:0 0 0 3px #ffa3661a}
 .site-header{border:0;background:var(--brand)}.header-inner{max-width:1200px;min-height:82px}.brand{font-size:1rem}
 .nav-links a,.nav-button{font-size:.82rem}.nav-links a[aria-current=page]{color:var(--accent)}
 .session-card{padding:22px 24px}.session-card h2{font-size:1.15rem}.session-card p{font-size:.86rem}.session-numbers{font-size:.8rem;color:var(--muted)}.session-numbers strong{color:var(--brand)}

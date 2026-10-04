@@ -14,9 +14,116 @@ from unittest.mock import patch
 from club.models import AuditEvent
 
 from .forms import UserCreationForm
+from .models import SignupEmailChallenge, SignupRateLimit
 
 
 User = get_user_model()
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class EmailFirstSignupTests(TestCase):
+    def _request_link(self, email="new@example.com"):
+        response = self.client.post(reverse("signup"), {"email": email})
+        self.assertRedirects(response, reverse("signup_done"))
+        return re.search(r"https?://testserver(/signup/verify/[^\s]+)", mail.outbox[-1].body).group(1)
+
+    def test_email_must_be_verified_before_account_or_attendance_access(self):
+        path = self._request_link()
+        self.assertFalse(User.objects.filter(email="new@example.com").exists())
+        self.assertEqual(self.client.get(reverse("player:attendance_submit")).status_code, 302)
+        response = self.client.get(path)
+        self.assertContains(response, "Verified email: <strong>new@example.com</strong>")
+        self.assertEqual(response["Referrer-Policy"], "no-referrer")
+        response = self.client.post(path, {
+            "email": "forged@example.com", "full_name": "New Player", "phone": "09175550101",
+            "reclub_name": "New on ReClub", "reclub_profile_url": "https://example.com/reclub/new",
+            "password1": "StrongPass123!", "password2": "StrongPass123!",
+        })
+        self.assertRedirects(response, reverse("player:home"))
+        self.assertTrue(User.objects.filter(email="new@example.com").exists())
+        self.assertFalse(User.objects.filter(email="forged@example.com").exists())
+        self.client.logout()
+        self.assertEqual(self.client.get(path).status_code, 400)
+
+    def test_signup_rejects_password_similar_to_verified_email(self):
+        path = self._request_link()
+        response = self.client.post(path, {
+            "full_name": "New Player", "phone": "09175550101",
+            "reclub_name": "New on ReClub", "reclub_profile_url": "https://example.com/reclub/new",
+            "password1": "new@example.com", "password2": "new@example.com",
+        })
+        self.assertContains(response, "too similar")
+        self.assertFalse(User.objects.filter(email="new@example.com").exists())
+
+    def test_signup_accepts_six_character_alphanumeric_password(self):
+        path = self._request_link()
+        response = self.client.post(path, {
+            "full_name": "New Player", "phone": "09175550101",
+            "reclub_name": "New on ReClub", "reclub_profile_url": "https://example.com/reclub/new",
+            "password1": "Qz7mP2", "password2": "Qz7mP2",
+        })
+        self.assertRedirects(response, reverse("player:home"))
+        self.assertTrue(User.objects.get(email="new@example.com").check_password("Qz7mP2"))
+
+    def test_signup_requires_six_alphanumeric_characters_with_letters_and_numbers(self):
+        path = self._request_link()
+        for password in ("Abc12", "abcdef", "123456", "Ab1!!!"):
+            with self.subTest(password=password):
+                response = self.client.post(path, {
+                    "full_name": "New Player", "phone": "09175550101",
+                    "reclub_name": "New on ReClub", "reclub_profile_url": "https://example.com/reclub/new",
+                    "password1": password, "password2": password,
+                })
+                self.assertContains(response, "Password must contain at least 6 letters and numbers")
+                self.assertFalse(User.objects.filter(email="new@example.com").exists())
+
+    def test_resend_replaces_old_link_and_expiry_blocks_signup(self):
+        first = self._request_link()
+        self.client.post(reverse("signup"), {"email": "new@example.com"})
+        self.assertEqual(len(mail.outbox), 1)
+        challenge = SignupEmailChallenge.objects.get(email="new@example.com")
+        challenge.last_sent_at -= timedelta(minutes=3)
+        challenge.save(update_fields=["last_sent_at"])
+        second = self._request_link()
+        self.assertNotEqual(first, second)
+        self.assertEqual(self.client.get(first).status_code, 400)
+        challenge.refresh_from_db()
+        challenge.expires_at = challenge.last_sent_at - timedelta(seconds=1)
+        challenge.save(update_fields=["expires_at"])
+        self.assertEqual(self.client.get(second).status_code, 400)
+        self.assertEqual(self.client.post(second, {"full_name": "New Player"}).status_code, 400)
+        self.assertFalse(User.objects.filter(email="new@example.com").exists())
+
+    def test_email_send_limit_blocks_repeated_resends(self):
+        self._request_link()
+        for _ in range(5):
+            challenge = SignupEmailChallenge.objects.get(email="new@example.com")
+            challenge.last_sent_at -= timedelta(minutes=3)
+            challenge.save(update_fields=["last_sent_at"])
+            self.client.post(reverse("signup"), {"email": "new@example.com"})
+        self.assertEqual(len(mail.outbox), 5)
+        self.assertEqual(SignupEmailChallenge.objects.get(email="new@example.com").sends_in_window, 5)
+
+    def test_existing_email_has_generic_response_and_reset_route(self):
+        User.objects.create_user("new@example.com", "StrongPass123!")
+        response = self.client.post(reverse("signup"), {"email": "NEW@example.com"}, follow=True)
+        self.assertContains(response, "If that address can be used for a new account")
+        self.assertContains(response, reverse("password_reset"))
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(SignupEmailChallenge.objects.exists())
+
+    def test_email_send_failure_does_not_leave_pending_link(self):
+        with patch("accounts.signup.send_mail", side_effect=OSError("SMTP unavailable")):
+            with self.assertRaises(OSError):
+                self.client.post(reverse("signup"), {"email": "new@example.com"})
+        self.assertFalse(SignupEmailChallenge.objects.exists())
+        self.assertFalse(SignupRateLimit.objects.exists())
+
+    def test_ip_send_limit_covers_distinct_addresses(self):
+        for index in range(101):
+            self.client.post(reverse("signup"), {"email": f"new{index}@example.com"})
+        self.assertEqual(len(mail.outbox), 100)
+        self.assertEqual(SignupEmailChallenge.objects.count(), 100)
 
 
 class UserTests(TestCase):
@@ -105,12 +212,17 @@ class UserTests(TestCase):
         self.assertIsNotNone(match)
         response = self.client.get(match.group(1))
         self.assertEqual(response.status_code, 302)
-        response = self.client.post(response["Location"], {
-            "new_password1": "new-secure-password-456", "new_password2": "new-secure-password-456",
+        reset_form_url = response["Location"]
+        response = self.client.post(reset_form_url, {
+            "new_password1": "Abc12", "new_password2": "Abc12",
+        })
+        self.assertContains(response, "Password must contain at least 6 letters and numbers")
+        response = self.client.post(reset_form_url, {
+            "new_password1": "Qz7mP2", "new_password2": "Qz7mP2",
         })
         self.assertRedirects(response, reverse("password_reset_complete"))
         user.refresh_from_db()
-        self.assertTrue(user.check_password("new-secure-password-456"))
+        self.assertTrue(user.check_password("Qz7mP2"))
         self.assertFalse(user.check_password("old-password-123"))
         self.assertEqual(AuditEvent.objects.filter(action="PASSWORD_RESET_COMPLETED", target_id=user.pk).count(), 1)
         self.client.post(reverse("password_reset"), {"email": "unknown@example.com"})

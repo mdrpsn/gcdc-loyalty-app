@@ -1,8 +1,17 @@
 {% extends "player/base.html" %}
 {% block title %}Attendance history · Got Cha Dink Club{% endblock %}
 {% block player_content %}
-<div class="page-heading"><p class="eyebrow">Court history</p><h1>Attendance history</h1><p>Valid attendance at a non-cancelled OpenPlay contributes to OpenPlays Attended.</p></div>
+<div class="page-heading"><p class="eyebrow">Court history</p><h1>Attendance history</h1><p>Admin-approved attendance at a non-cancelled OpenPlay contributes to OpenPlays Attended.</p></div>
+<p><a class="button primary" href="{% url 'player:attendance_submit' %}">Submit OpenPlay attendance</a></p>
 {% include "player/_calendar.html" %}
+<section class="subsection" aria-labelledby="submission-title">
+  <h2 id="submission-title">Your submissions</h2>
+  <div class="card roster-list">
+    {% for submission in submissions %}
+      <article class="roster-row"><div class="roster-identity"><strong>{{ submission.openplay.starts_at|club_time:"M j, Y · g:i A" }} · {{ submission.openplay.period }} · {{ submission.openplay.venue.name }}</strong><span class="state {% if submission.status == 'APPROVED' %}checked{% elif submission.status == 'DECLINED' %}void{% else %}waiting{% endif %}">{{ submission.get_status_display }}</span>{% if submission.decline_reason %}<small>{{ submission.decline_reason }}</small>{% endif %}</div></article>
+    {% empty %}<p class="empty-inline">No attendance submitted yet.</p>{% endfor %}
+  </div>
+</section>
 <section class="panel-dark court-bg summary" aria-label="Attendance summary">
   <h2>Your Attendance History</h2>
   <div class="summary-stats">
@@ -13,8 +22,8 @@
 <div class="session-list">
 {% for row in page %}
 <article class="panel-dark court-bg history-tile"><div><h2>OpenPlay at {{ row.openplay.venue.name }}</h2><p>{{ row.openplay.starts_at|club_time:"M j, Y · g:i A" }} · {{ row.openplay.venue.name }}</p></div>
-<strong class="status-note {% if row.status == 'VOID' or row.openplay.status == 'CANCELLED' %}invalid{% endif %}">{% if row.status == 'VOID' %}Void — does not count{% elif row.openplay.status == 'CANCELLED' %}Cancelled session — does not count{% elif row.openplay.status == 'SCHEDULED' %}Checked in — session pending{% else %}Valid — counts{% endif %}</strong></article>
-{% empty %}<section class="card empty"><h2>No attendance yet</h2><p>Your check-ins will appear here.</p></section>{% endfor %}
+<strong class="status-note {% if row.status == 'VOID' or row.openplay.status == 'CANCELLED' %}invalid{% endif %}">{% if row.status == 'VOID' %}Void — does not count{% elif row.openplay.status == 'CANCELLED' %}Cancelled session — does not count{% elif row.openplay.status == 'SCHEDULED' %}Approved — session pending completion{% else %}Approved — counts{% endif %}</strong></article>
+{% empty %}<section class="card empty"><h2>No approved attendance yet</h2><p>Approved sessions will appear here.</p></section>{% endfor %}
 </div>
 {% if page.has_other_pages %}<nav class="pagination" aria-label="Attendance pages">{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
 {% endblock %}

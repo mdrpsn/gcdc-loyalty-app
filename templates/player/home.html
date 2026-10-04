@@ -1,8 +1,11 @@
 {% extends "player/base.html" %}
 {% block title %}My club · Got Cha Dink Club{% endblock %}
 {% block player_content %}
+<div class="dashboard-heading"><div><p class="eyebrow">Your club, your court</p><h1>My club</h1><p class="muted">A little more court time. A little closer to your next reward.</p></div><a class="button primary" href="{% url 'player:openplays' %}">Find an OpenPlay <span aria-hidden="true">↗</span></a></div>
+<div class="dashboard-grid">
 <section class="hero court-bg" aria-labelledby="hero-title">
-  <h1 id="hero-title">Hey, {{ player.display_name }}</h1>
+  <p class="eyebrow">Member progress</p>
+  <h2 id="hero-title">Hey, {{ player.display_name }}</h2>
   <p class="hero-sub">Every OpenPlay counts.</p>
   <div class="hero-level">
     <div><span class="eyebrow">Level</span><strong class="level-name">{{ summary.current_level.name|default:"Not configured" }}</strong></div>
@@ -11,7 +14,7 @@
   {% if summary.next_milestone %}<progress value="{{ progress.percent }}" max="100" aria-label="Progress toward {{ summary.next_milestone.name }}">{{ progress.percent }}%</progress>{% endif %}
 </section>
 
-<div class="tiles">
+<div class="tiles dashboard-stats">
   <a class="tile" href="{% url 'player:attendance' %}"><strong>{{ summary.openplays_attended }}</strong><span>OpenPlays Attended</span></a>
   <div class="tile" role="group" aria-label="Current Streak: {{ streaks.current }} OpenPlays"><strong>{{ streaks.current }}</strong><span>Current Streak</span></div>
   <div class="tile" role="group" aria-label="Best Streak: {{ streaks.best }} OpenPlays"><strong>{{ streaks.best }}</strong><span>Best Streak</span></div>
@@ -44,14 +47,14 @@
   <p class="muted">Check-in updates OpenPlays Attended immediately. Rewards become available after the session is completed.</p>
 </section>
 
-<section aria-labelledby="badges-title">
+<section class="card achievement-panel" aria-labelledby="badges-title">
   <h2 id="badges-title" class="section-title">Badges</h2>
   {% if badges %}
   <ul class="badges">{% for badge in badges %}<li class="badge-hex" title="{{ badge.description }}">{% include "player/_badge_icon.html" %}<span class="badge-label">{{ badge.name }}</span><span class="sr-only">{{ badge.description }}</span></li>{% endfor %}</ul>
   {% else %}<p class="card empty-inline">Your first badge starts with a completed OpenPlay.</p>{% endif %}
 </section>
 
-<section aria-labelledby="available-title">
+<section class="dashboard-rewards" aria-labelledby="available-title">
   <div class="section-row"><h2 id="available-title" class="section-title">Available reward</h2><a href="{% url 'player:rewards' %}">View reward history →</a></div>
   {% if available_rewards %}
   <div class="reward-scroll">
@@ -62,4 +65,5 @@
   </div>
   {% else %}<p class="card empty-inline">No available reward yet. Keep playing!</p>{% endif %}
 </section>
+</div>
 {% endblock %}

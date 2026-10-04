@@ -7,9 +7,11 @@ app_name = "organizer"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("attendance-submissions/", views.attendance_submissions, name="attendance_submissions"),
+    path("attendance-submissions/<int:submission_id>/review/", views.attendance_submission_review,
+         name="attendance_submission_review"),
     path("openplays/<int:openplay_id>/", views.session_detail, name="session"),
     path("openplays/<int:openplay_id>/check-in/<int:player_id>/", views.check_in_player, name="check_in"),
-    path("openplays/<int:openplay_id>/walk-in/", views.walk_in, name="walk_in"),
     path("openplays/<int:openplay_id>/complete/", views.complete_session, name="complete"),
     path("openplays/<int:openplay_id>/cancel/", views.cancel_session, name="cancel"),
     path("schedule/openplays/new/", views.openplay_new, name="openplay_new"),

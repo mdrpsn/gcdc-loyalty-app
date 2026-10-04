@@ -23,7 +23,7 @@
   <a href="{% url 'player:profile' %}"{% if view == 'player:profile' %} aria-current="page"{% endif %}><span class="tab-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.500" r="3.500"/><path d="M5 20c.8-3.600 3.600-5.500 7-5.500s6.200 1.900 7 5.500"/></svg></span><span class="tab-label">Profile</span></a>
 </nav>
 {% endwith %}
-<main class="page-shell player-shell">
+<main id="main-content" class="page-shell player-shell" tabindex="-1">
   {% include "organizer/_messages.html" %}
   {% block player_content %}{% endblock %}
 </main>

@@ -8,8 +8,10 @@
   <title>{% block title %}Got Cha Dink Club{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'club/css/organizer.css' %}">
   {% block extra_css %}{% endblock %}
+  <link rel="stylesheet" href="{% static 'club/css/redesign.css' %}">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
   {% block body %}{% endblock %}
 </body>
 </html>

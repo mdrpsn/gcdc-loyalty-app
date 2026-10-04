@@ -11,12 +11,12 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from .calendar_grid import local_date, month_bounds, month_context, parse_month
 from .loyalty import get_loyalty_summary, get_upcoming_milestones
-from .models import Attendance, OpenPlay, Registration, RewardIssuance
-from .player_forms import PlayerProfileForm
+from .models import Attendance, AttendanceSubmission, OpenPlay, Registration, RewardIssuance
+from .player_forms import AttendanceSubmissionForm, PlayerProfileForm
 from .progression import get_badges, get_reward_progress, get_streaks
 from .services import (
     cancel_registration, counted_openplay_starts, create_linked_player, openplays_attended, register_player,
-    update_own_profile,
+    submit_member_attendance, update_own_profile,
 )
 
 
@@ -134,7 +134,29 @@ def attendance(request):
     return render(request, "player/attendance.html", {
         "page": page, "attended_total": openplays_attended(player), "attended_in_month": len(month_starts),
         "calendar": month_context(first, {local_date(moment): "attended" for moment in month_starts}, timezone.localdate()),
+        "submissions": AttendanceSubmission.objects.filter(player=player).select_related(
+            "openplay", "openplay__venue",
+        ).order_by("-submitted_at", "-pk")[:25],
     })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def submit_attendance(request):
+    player = _required_player(request)
+    if player is None:
+        return redirect("player:profile")
+    form = AttendanceSubmissionForm(request.POST or None, initial={"openplay": request.GET.get("openplay")})
+    if request.method == "POST" and form.is_valid():
+        try:
+            submission = submit_member_attendance(openplay_id=form.cleaned_data["openplay"].pk, actor=request.user)
+        except ValidationError as error:
+            form.add_error(None, "; ".join(error.messages))
+        else:
+            messages.success(request, "Attendance submitted for approval." if submission.status == "PENDING"
+                             else "Attendance already approved.")
+            return redirect("player:attendance")
+    return render(request, "player/attendance_submit.html", {"form": form, "player": player})
 
 
 @login_required
@@ -165,11 +187,15 @@ def profile(request):
                 create_linked_player(
                     user_id=request.user.pk, display_name=form.cleaned_data["display_name"],
                     phone=form.cleaned_data["phone"], actor=request.user,
+                    reclub_name=form.cleaned_data["reclub_name"],
+                    reclub_profile_url=form.cleaned_data["reclub_profile_url"],
                 )
             else:
                 update_own_profile(
                     player_id=player.pk, display_name=form.cleaned_data["display_name"],
                     phone=form.cleaned_data["phone"], actor=request.user,
+                    reclub_name=form.cleaned_data["reclub_name"],
+                    reclub_profile_url=form.cleaned_data["reclub_profile_url"],
                 )
         except (ValidationError, IntegrityError) as error:
             form.add_error(None, "; ".join(error.messages) if isinstance(error, ValidationError) else "Profile could not be saved.")

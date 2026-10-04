@@ -145,7 +145,7 @@
 }
 .tabbar a[aria-current="page"] .tab-icon {
   background:var(--accent);
-  box-shadow:0 0 0 4px rgba(255,106,19,.28)
+  box-shadow:0 0 0 4px rgba(220,108,58,.28)
 }
 .tabbar a:hover {
   color:var(--brand)
@@ -381,7 +381,7 @@ a.tile:hover {
   padding:5px 10px;
   border-radius:8px;
   background:var(--accent-tint);
-  color:#9a3412;
+  color:var(--accent-ink);
   font-size:.82rem;
   font-weight:800
 }

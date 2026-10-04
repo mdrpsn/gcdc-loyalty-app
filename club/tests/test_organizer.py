@@ -2,7 +2,6 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.core import signing
 from django.db import connection
 from django.test import Client, TestCase
 from django.test.utils import CaptureQueriesContext
@@ -11,8 +10,8 @@ from django.utils import timezone
 
 from accounts.permissions import ADMIN, ORGANIZER
 from club.loyalty import reconcile_player_loyalty, redeem_reward
-from club.models import Attendance, AuditEvent, OpenPlay, Player, Registration, RewardIssuance, RewardRedemption, Venue
-from club.services import restore_attendance, void_attendance
+from club.models import Attendance, AttendanceSubmission, AuditEvent, OpenPlay, Player, Registration, RewardIssuance, RewardRedemption, Venue
+from club.services import restore_attendance, review_attendance_submission, void_attendance
 
 
 class OrganizerRequestTests(TestCase):
@@ -23,8 +22,14 @@ class OrganizerRequestTests(TestCase):
         self.admin = User.objects.create_user("admin@example.com", "Securepass123")
         self.admin.groups.add(Group.objects.get(name=ADMIN))
         self.member = User.objects.create_user("member@example.com", "Securepass123")
-        self.player = Player.objects.create(user=self.member, display_name="Jane Player", phone="09171234567")
-        self.other = Player.objects.create(display_name="Other Player", phone="09170000000")
+        self.player = Player.objects.create(
+            user=self.member, display_name="Jane Player", phone="09171234567",
+            reclub_name="Jane ReClub", reclub_profile_url="https://example.com/reclub/jane",
+        )
+        self.other = Player.objects.create(
+            display_name="Other Player", phone="09170000000",
+            reclub_name="Other ReClub", reclub_profile_url="https://example.com/reclub/other",
+        )
         self.venue = Venue.objects.create(name="Main Court")
         self.now = timezone.now()
         self.current = OpenPlay.objects.create(
@@ -80,7 +85,6 @@ class OrganizerRequestTests(TestCase):
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 403)
         self.assertEqual(self.client.post(self.url("check_in", self.current.pk, self.player.pk)).status_code, 403)
-        self.assertEqual(self.client.post(self.url("walk_in", self.current.pk)).status_code, 403)
         self.assertEqual(self.client.post(self.url("complete", self.past.pk)).status_code, 403)
         self.assertEqual(self.client.post(self.url("cancel", self.current.pk), {"reason": "Rain"}).status_code, 403)
         self.client.force_login(self.admin)
@@ -103,7 +107,6 @@ class OrganizerRequestTests(TestCase):
 
     def test_mutations_require_post_and_csrf(self):
         self.assertEqual(self.client.get(self.url("check_in", self.current.pk, self.player.pk)).status_code, 405)
-        self.assertEqual(self.client.get(self.url("walk_in", self.current.pk)).status_code, 405)
         csrf_client = Client(enforce_csrf_checks=True)
         csrf_client.force_login(self.organizer)
         self.assertEqual(csrf_client.post(self.url("check_in", self.current.pk, self.player.pk)).status_code, 403)
@@ -130,8 +133,8 @@ class OrganizerRequestTests(TestCase):
     def test_roster_search_and_check_in_confirmation(self):
         response = self.client.get(self.url("session", self.current.pk))
         self.assertContains(response, "Jane Player")
-        self.assertContains(response, "Not checked in")
-        self.assertContains(response, "Registered, unchecked")
+        self.assertContains(response, "No attendance submitted")
+        self.assertContains(response, "Registered, awaiting approval")
         response = self.client.get(self.url("session", self.current.pk), {"q": "091712"})
         self.assertContains(response, "Registered for this OpenPlay")
         response = self.client.get(self.url("session", self.current.pk), {"q": "Other"})
@@ -139,17 +142,23 @@ class OrganizerRequestTests(TestCase):
         response = self.client.post(
             self.url("check_in", self.current.pk, self.player.pk), {"q": "Jane"}, follow=True
         )
-        self.assertContains(response, "Check-in confirmed")
-        self.assertContains(response, "✓ Checked in")
-        attendance = Attendance.objects.get(player=self.player, openplay=self.current)
-        self.assertContains(response, timezone.localtime(attendance.checked_in_at).strftime("%I:%M").lstrip("0"))
-        self.assertEqual(AuditEvent.objects.filter(action="ATTENDANCE_CHECKED_IN", target_id=attendance.pk).count(), 1)
+        self.assertContains(response, "pending admin approval")
+        self.assertContains(response, "Pending admin approval")
+        self.assertFalse(Attendance.objects.filter(player=self.player, openplay=self.current).exists())
+        submission = AttendanceSubmission.objects.get(player=self.player, openplay=self.current)
         response = self.client.post(self.url("check_in", self.current.pk, self.player.pk), follow=True)
-        self.assertContains(response, "Already checked in")
+        self.assertContains(response, "pending admin approval")
+        self.client.force_login(self.admin)
+        review_attendance_submission(submission_id=submission.pk, actor=self.admin, approve=True)
+        attendance = Attendance.objects.get(player=self.player, openplay=self.current)
+        self.assertEqual(attendance.source, Attendance.Source.CLAIM)
+        self.assertTrue(AuditEvent.objects.filter(action="ATTENDANCE_APPROVED", target_id=submission.pk).exists())
         self.assertEqual(Attendance.objects.filter(player=self.player, openplay=self.current).count(), 1)
 
     def test_void_cancelled_and_outside_window_check_ins(self):
         self.client.post(self.url("check_in", self.current.pk, self.player.pk))
+        submission = AttendanceSubmission.objects.get(player=self.player, openplay=self.current)
+        review_attendance_submission(submission_id=submission.pk, actor=self.admin, approve=True)
         attendance = Attendance.objects.get(player=self.player, openplay=self.current)
         void_attendance(attendance_id=attendance.pk, actor=self.admin, reason="Wrong player")
         response = self.client.post(self.url("check_in", self.current.pk, self.player.pk), follow=True)
@@ -159,58 +168,24 @@ class OrganizerRequestTests(TestCase):
         self.assertEqual(attendance.status, Attendance.Status.VOID)
         self.assertFalse(Attendance.objects.filter(player=self.other, openplay=self.current).exists())
         response = self.client.post(self.url("check_in", self.future.pk, self.other.pk), follow=True)
-        self.assertContains(response, "outside the OpenPlay window")
+        self.assertContains(response, "has started")
         self.current.status = OpenPlay.Status.CANCELLED
         self.current.cancelled_at = timezone.now()
         self.current.cancellation_reason = "Rain"
         self.current.save()
         response = self.client.post(self.url("check_in", self.current.pk, self.other.pk), follow=True)
-        self.assertContains(response, "Only a scheduled OpenPlay")
+        self.assertContains(response, "was not cancelled")
         self.assertFalse(Attendance.objects.filter(player=self.other).exists())
 
-    def test_walk_in_requires_search_and_blocks_unconfirmed_match(self):
-        url = self.url("walk_in", self.current.pk)
-        response = self.client.post(url, {"display_name": "New Player", "phone": "123"})
-        self.assertEqual(response.status_code, 400)
-        search = self.client.get(self.url("session", self.current.pk), {"q": "Jane"})
-        token = search.context["walk_in_form"]["search_token"].value()
-        self.assertEqual(signing.loads(token, salt="club.walk-in")["openplay_id"], self.current.pk)
-        response = self.client.post(url, {
-            "search_token": token, "display_name": "Jane Player", "phone": "09171234567"
-        })
-        self.assertEqual(response.status_code, 409)
-        self.assertContains(response, "Matching players found", status_code=409)
+    def test_new_player_must_sign_up_before_staff_can_submit(self):
+        response = self.client.get(self.url("session", self.current.pk), {"q": "New Walk In"})
+        self.assertContains(response, "New players must create an account")
+        self.assertNotContains(response, "Create a new walk-in")
+        response = self.client.get(self.url("session", self.current.pk), {"q": "Other"})
+        self.assertContains(response, "Account required before attendance submission")
+        self.assertNotContains(response, "Submit attendance for Other Player")
+        self.assertEqual(self.client.post(f"/organizer/openplays/{self.current.pk}/walk-in/").status_code, 404)
         self.assertEqual(Player.objects.count(), 2)
-        response = self.client.post(self.url("check_in", self.current.pk, self.player.pk), follow=True)
-        self.assertContains(response, "Check-in confirmed")
-        self.assertEqual(Player.objects.count(), 2)
-
-    def test_walk_in_created_and_checked_in_atomically_without_account_claim(self):
-        search = self.client.get(self.url("session", self.current.pk), {"q": "New Walk In"})
-        token = search.context["walk_in_form"]["search_token"].value()
-        response = self.client.post(self.url("walk_in", self.current.pk), {
-            "search_token": token, "display_name": "New Walk In",
-            "contact_email": "new@example.com",
-        }, follow=True)
-        self.assertContains(response, "New Walk In created and checked in")
-        player = Player.objects.get(display_name="New Walk In")
-        self.assertIsNone(player.user_id)
-        self.assertEqual(Attendance.objects.get(player=player, openplay=self.current).status, Attendance.Status.VALID)
-        self.assertTrue(AuditEvent.objects.filter(action="PLAYER_CREATED", target_id=player.pk).exists())
-        self.assertEqual(Player.objects.count(), 3)
-
-    def test_walk_in_invalid_contact_and_cross_session_token(self):
-        search = self.client.get(self.url("session", self.current.pk), {"q": "Someone"})
-        token = search.context["walk_in_form"]["search_token"].value()
-        response = self.client.post(self.url("walk_in", self.current.pk), {
-            "search_token": token, "display_name": "Someone",
-        })
-        self.assertContains(response, "Enter a phone number or contact email", status_code=400)
-        response = self.client.post(self.url("walk_in", self.future.pk), {
-            "search_token": token, "display_name": "Someone", "phone": "123",
-        })
-        self.assertEqual(response.status_code, 400)
-        self.assertFalse(Player.objects.filter(display_name="Someone").exists())
 
     def test_100_player_roster_query_budget(self):
         players = Player.objects.bulk_create([
@@ -264,6 +239,8 @@ class OrganizerRequestTests(TestCase):
     def test_player_lookup_pending_reward_and_redemption(self):
         self.history(9)
         self.client.post(self.url("check_in", self.current.pk, self.player.pk))
+        submission = AttendanceSubmission.objects.get(player=self.player, openplay=self.current)
+        review_attendance_submission(submission_id=submission.pk, actor=self.admin, approve=True)
         response = self.client.get(self.url("player", self.player.pk))
         self.assertContains(response, "OpenPlays Attended")
         self.assertContains(response, "New rewards become available after")
@@ -352,17 +329,16 @@ class OrganizerRequestTests(TestCase):
         self.assertContains(self.client.get(self.url("session", self.current.pk), {"q": "Jane"}), "Jane Player")
         self.assertContains(self.client.post(
             self.url("check_in", self.current.pk, self.player.pk), follow=True
-        ), "Check-in confirmed")
+        ), "pending admin approval")
         self.assertFalse(RewardIssuance.objects.filter(player=self.player).exists())
         self.assertContains(self.client.post(
             self.url("check_in", self.current.pk, self.player.pk), follow=True
-        ), "Already checked in")
-        search = self.client.get(self.url("session", self.current.pk), {"q": "New Walk In"})
-        token = search.context["walk_in_form"]["search_token"].value()
-        self.assertContains(self.client.post(self.url("walk_in", self.current.pk), {
-            "search_token": token, "display_name": "New Walk In", "phone": "09220000000",
-        }, follow=True), "New Walk In created and checked in")
-        self.assertContains(self.client.get(self.url("session", self.current.pk)), "Registered, unchecked")
+        ), "pending admin approval")
+        self.assertContains(self.client.get(self.url("session", self.current.pk), {"q": "New Walk In"}),
+                            "New players must create an account")
+        self.assertContains(self.client.get(self.url("session", self.current.pk)), "Registered, awaiting approval")
+        submission = AttendanceSubmission.objects.get(player=self.player, openplay=self.current)
+        review_attendance_submission(submission_id=submission.pk, actor=self.admin, approve=True)
         self.current.ends_at = timezone.now() - timedelta(minutes=1)
         self.current.save(update_fields=["ends_at", "updated_at"])
         self.assertContains(self.client.get(self.url("complete", self.current.pk)), "19 registered players remain unchecked")

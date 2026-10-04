@@ -178,7 +178,7 @@ class PlayerRequestTests(TestCase):
         self.attend(void, valid=False)
         self.attend(cancelled)
         response = self.client.get(self.url("attendance"))
-        self.assertContains(response, "Valid — counts")
+        self.assertContains(response, "Approved — counts")
         self.assertContains(response, "Void — does not count")
         self.assertContains(response, "Cancelled session — does not count")
         self.assertEqual(self.client.get(self.url("home")).context["summary"].openplays_attended, 1)
@@ -270,15 +270,35 @@ class PlayerRequestTests(TestCase):
         self.player.save()
         response = self.client.get(self.url("home"))
         self.assertRedirects(response, self.url("profile"))
-        response = self.client.post(self.url("profile"), {"display_name": "Fresh Profile", "phone": "333"}, follow=True)
+        response = self.client.post(self.url("profile"), {
+            "display_name": "Fresh Profile", "phone": "333", "reclub_name": "Fresh on ReClub",
+            "reclub_profile_url": "https://example.com/reclub/fresh",
+        }, follow=True)
         self.assertContains(response, "Profile saved")
         linked = Player.objects.get(user=self.user)
         self.assertNotEqual(linked.pk, walk_in.pk)
         self.assertEqual(linked.phone, "333")
-        self.client.post(self.url("profile"), {"display_name": "Updated Member", "phone": "444"})
+        self.client.post(self.url("profile"), {
+            "display_name": "Updated Member", "phone": "444", "reclub_name": "Fresh on ReClub",
+            "reclub_profile_url": "https://example.com/reclub/fresh",
+        })
         linked.refresh_from_db()
         self.assertEqual(linked.display_name, "Updated Member")
         self.assertEqual(linked.phone, "444")
         self.assertEqual(linked.contact_email, None)
         self.assertEqual(self.user.email, "member@example.com")
         self.assertTrue(AuditEvent.objects.filter(action="PLAYER_PROFILE_UPDATED", target_id=linked.pk).exists())
+
+    def test_profile_cannot_claim_another_players_reclub_link(self):
+        self.other.reclub_name = "Private on ReClub"
+        self.other.reclub_profile_url = "https://example.com/reclub/private"
+        self.other.save()
+
+        response = self.client.post(self.url("profile"), {
+            "display_name": "Member One", "phone": "111", "reclub_name": "Member on ReClub",
+            "reclub_profile_url": "https://example.com/reclub/PRIVATE",
+        })
+
+        self.assertContains(response, "This ReClub profile is already in club records")
+        self.player.refresh_from_db()
+        self.assertEqual(self.player.reclub_profile_url, "")

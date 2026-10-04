@@ -38,3 +38,22 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+class SignupEmailChallenge(models.Model):
+    """A pending address; no login account exists until the link is used."""
+
+    email = models.EmailField(unique=True)
+    token_digest = models.CharField(max_length=64, db_index=True)
+    expires_at = models.DateTimeField(db_index=True)
+    last_sent_at = models.DateTimeField()
+    window_started_at = models.DateTimeField()
+    sends_in_window = models.PositiveSmallIntegerField(default=0)
+
+
+class SignupRateLimit(models.Model):
+    """Per-IP email-send budget shared by all application workers."""
+
+    key = models.CharField(max_length=64, unique=True)
+    window_started_at = models.DateTimeField()
+    sends_in_window = models.PositiveSmallIntegerField(default=0)

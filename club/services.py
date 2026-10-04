@@ -348,8 +348,22 @@ def restore_attendance(*, attendance_id, actor, reason):
     return attendance
 
 
-def openplays_attended(player):
-    """The current count is always derived from the attendance ledger."""
+def _counted_attendances(player):
+    """The one definition of what counts: VALID attendance at a non-cancelled OpenPlay."""
     return Attendance.objects.filter(player=player, status=Attendance.Status.VALID).exclude(
         openplay__status=OpenPlay.Status.CANCELLED
-    ).count()
+    )
+
+
+def openplays_attended(player):
+    """The current count is always derived from the attendance ledger."""
+    return _counted_attendances(player).count()
+
+
+def counted_openplay_starts(player, start, end):
+    """Start times of the counted OpenPlays inside [start, end), for the attendance calendar."""
+    return list(
+        _counted_attendances(player)
+        .filter(openplay__starts_at__gte=start, openplay__starts_at__lt=end)
+        .values_list("openplay__starts_at", flat=True)
+    )

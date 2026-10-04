@@ -4,15 +4,19 @@
 {% block player_content %}
 {% get_current_timezone as club_timezone %}
 <div class="page-heading"><p class="eyebrow">Get on court</p><h1>Upcoming OpenPlays</h1><p>Register ahead of time, or join as a walk-in when the club allows it. Times shown in {{ club_timezone }}.</p></div>
+{% include "player/_calendar.html" %}
 <div class="session-list">
 {% for session in sessions %}
-<article class="card player-session">
-  <div><p class="eyebrow">{{ session.starts_at|date:"D, M j" }}</p><h2>OpenPlay at {{ session.venue.name }}</h2>
+<article class="panel-dark court-bg session-tile">
+  <div class="session-main">
+    <span class="chip">{% if session.member_can_register %}Upcoming{% else %}Happening now{% endif %}</span>
+    <p class="eyebrow">{{ session.starts_at|date:"D, M j" }}</p>
+    <h2>OpenPlay at {{ session.venue.name }}</h2>
     <p>{{ session.starts_at|club_time:"M j, Y · g:i A" }} – {{ session.ends_at|club_time:"g:i A" }} · {{ session.venue.name }}</p>
     <p class="status-note">{% if session.member_registration_status == 'ACTIVE' %}Registered{% elif session.member_registration_status == 'CANCELLED' %}Registration cancelled{% else %}Not registered{% endif %}</p>
-    </div>
+  </div>
   {% if session.member_can_register %}
-    {% if session.member_registration_status == 'ACTIVE' %}<form method="post" action="{% url 'player:cancel' session.pk %}">{% csrf_token %}<button class="button secondary" type="submit">Cancel registration</button></form>
+    {% if session.member_registration_status == 'ACTIVE' %}<form method="post" action="{% url 'player:cancel' session.pk %}">{% csrf_token %}<button class="button secondary on-dark" type="submit">Cancel registration</button></form>
     {% else %}<form method="post" action="{% url 'player:register' session.pk %}">{% csrf_token %}<button class="button primary" type="submit">Register</button></form>{% endif %}
   {% endif %}
 </article>

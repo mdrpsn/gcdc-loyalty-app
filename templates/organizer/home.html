@@ -2,7 +2,7 @@
 {% block title %}Organizer home · Got Cha Dink Club{% endblock %}
 {% block organizer_content %}
 <div class="page-heading"><p class="eyebrow">Organizer desk</p><h1>Today's OpenPlays</h1><p>{{ today|date:"l, F j" }} · Choose a session to run its roster.</p></div>
-<p><a class="button primary" href="{% url 'organizer:openplay_new' %}">Schedule an OpenPlay</a> <a class="button secondary" href="{% url 'organizer:venue_new' %}">Add a venue</a></p>
+<p class="button-row"><a class="button primary" href="{% url 'organizer:openplay_new' %}">Schedule an OpenPlay</a> <a class="button secondary" href="{% url 'organizer:venue_new' %}">Add a venue</a></p>
 <div class="session-list">
   {% for session in today_sessions %}
   <a class="card session-card" href="{% url 'organizer:session' session.pk %}">

@@ -9,11 +9,15 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from .loyalty import get_loyalty_summary
+from .calendar_grid import local_date, month_bounds, month_context, parse_month
+from .loyalty import get_loyalty_summary, get_upcoming_milestones
 from .models import Attendance, OpenPlay, Registration, RewardIssuance
 from .player_forms import PlayerProfileForm
 from .progression import get_badges, get_reward_progress, get_streaks
-from .services import cancel_registration, create_linked_player, register_player, update_own_profile
+from .services import (
+    cancel_registration, counted_openplay_starts, create_linked_player, openplays_attended, register_player,
+    update_own_profile,
+)
 
 
 def _player(request):
@@ -37,12 +41,17 @@ def home(request):
     streaks = get_streaks(player)
     available = list(RewardIssuance.objects.filter(
         player=player, status=RewardIssuance.Status.AVAILABLE,
-    ).order_by("earned_at", "pk")[:3])
+    ).order_by("earned_at", "pk"))
+    next_registration = Registration.objects.filter(
+        player=player, status=Registration.Status.ACTIVE,
+        openplay__status=OpenPlay.Status.SCHEDULED, openplay__ends_at__gte=timezone.now(),
+    ).select_related("openplay", "openplay__venue").order_by("openplay__starts_at", "openplay_id").first()
     return render(request, "player/home.html", {
         "player": player, "summary": summary,
         "progress": get_reward_progress(summary), "streaks": streaks,
         "badges": get_badges(completed_attendances=summary.completed_attendances, streaks=streaks),
-        "available_rewards": available,
+        "available_rewards": available[:3], "available_count": len(available),
+        "next_session": next_registration.openplay if next_registration else None,
     })
 
 
@@ -66,7 +75,22 @@ def openplays(request):
     for session in sessions:
         session.member_registration_status = registrations.get(session.pk)
         session.member_can_register = now < session.starts_at
-    return render(request, "player/openplays.html", {"sessions": sessions, "page": sessions_page})
+    first = parse_month(request.GET.get("month"), timezone.localdate())
+    start, end = month_bounds(first)
+    month_sessions = list(OpenPlay.objects.filter(
+        status=OpenPlay.Status.SCHEDULED, ends_at__gte=now, starts_at__gte=start, starts_at__lt=end,
+    ).values_list("pk", "starts_at"))
+    registered_ids = set(Registration.objects.filter(
+        player=player, status=Registration.Status.ACTIVE, openplay_id__in=[pk for pk, _ in month_sessions],
+    ).values_list("openplay_id", flat=True)) if month_sessions else set()
+    marked = {}
+    for pk, starts_at in month_sessions:
+        day = local_date(starts_at)
+        marked[day] = "registered" if pk in registered_ids or marked.get(day) == "registered" else "session"
+    return render(request, "player/openplays.html", {
+        "sessions": sessions, "page": sessions_page,
+        "calendar": month_context(first, marked, timezone.localdate()),
+    })
 
 
 def _change_registration(request, openplay_id, operation, success):
@@ -104,7 +128,13 @@ def attendance(request):
         "-openplay__starts_at", "-pk"
     )
     page = Paginator(rows, 25).get_page(request.GET.get("page"))
-    return render(request, "player/attendance.html", {"page": page})
+    first = parse_month(request.GET.get("month"), timezone.localdate())
+    start, end = month_bounds(first)
+    month_starts = counted_openplay_starts(player, start, end)
+    return render(request, "player/attendance.html", {
+        "page": page, "attended_total": openplays_attended(player), "attended_in_month": len(month_starts),
+        "calendar": month_context(first, {local_date(moment): "attended" for moment in month_starts}, timezone.localdate()),
+    })
 
 
 @login_required
@@ -120,6 +150,7 @@ def rewards(request):
         "available": [r for r in issuances if r.status == RewardIssuance.Status.AVAILABLE],
         "redeemed": [r for r in issuances if r.status == RewardIssuance.Status.REDEEMED],
         "revoked": [r for r in issuances if r.status == RewardIssuance.Status.REVOKED],
+        "upcoming": get_upcoming_milestones(player),
     })
 
 

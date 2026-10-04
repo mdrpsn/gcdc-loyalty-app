@@ -1,0 +1,14 @@
+<section class="cal" aria-label="{{ calendar.label }} calendar">
+  <div class="cal-head">
+    <a href="?month={{ calendar.previous }}" aria-label="Previous month">‹</a>
+    <h2>{{ calendar.label }}</h2>
+    <a href="?month={{ calendar.next }}" aria-label="Next month">›</a>
+  </div>
+  <table>
+    <thead><tr>{% for name in calendar.weekdays %}<th scope="col">{{ name }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for week in calendar.weeks %}<tr>{% for cell in week %}{% if cell %}<td class="{% if cell.mark %}is-marked is-{{ cell.mark }}{% endif %}{% if cell.today %} is-today{% endif %}"><span class="day">{{ cell.day }}</span>{% if cell.mark == 'session' %}<span class="sr-only"> OpenPlay scheduled</span>{% elif cell.mark == 'registered' %}<span class="sr-only"> You are registered</span>{% elif cell.mark == 'attended' %}<span class="sr-only"> Attended</span>{% endif %}{% if cell.today %}<small>Today</small>{% endif %}</td>{% else %}<td aria-hidden="true"></td>{% endif %}{% endfor %}</tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>

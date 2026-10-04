@@ -1,20 +1,31 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static club_roles %}
 {% block extra_css %}<link rel="stylesheet" href="{% static 'club/css/player.css' %}">{% endblock %}
 {% block body %}
-<header class="site-header player-header"><div class="header-inner">
-  <a class="brand" href="{% url 'player:home' %}"><span class="brand-mark" aria-hidden="true">●</span> Got Cha Dink <strong>Club</strong></a>
-  <nav class="nav-links player-nav" aria-label="Player navigation">
-    <a href="{% url 'player:home' %}">Home</a>
-    <a href="{% url 'player:openplays' %}">OpenPlays</a>
-    <a href="{% url 'player:attendance' %}">Attendance</a>
-    <a href="{% url 'player:rewards' %}">Rewards</a>
-    <a href="{% url 'player:profile' %}">Profile</a>
-    <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="nav-button" type="submit">Sign out</button></form>
-  </nav>
-</div></header>
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="appbar-brand" href="{% url 'player:home' %}"><span class="brand-mark" aria-hidden="true">●</span> Got Cha Dink <strong>Club</strong></a>
+    <details class="user-menu">
+      <summary aria-label="Account menu"><span class="avatar" aria-hidden="true">{{ request.user|avatar_initials }}</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <div class="menu">
+        <p class="who">{{ request.user.email }}</p>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="button secondary" type="submit">Sign out</button></form>
+      </div>
+    </details>
+  </div>
+</header>
+{% with view=request.resolver_match.view_name %}
+<nav class="tabbar" aria-label="Player navigation">
+  <a href="{% url 'player:home' %}"{% if view == 'player:home' %} aria-current="page"{% endif %}><span class="tab-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></span><span class="tab-label">Home</span></a>
+  <a href="{% url 'player:openplays' %}"{% if view == 'player:openplays' %} aria-current="page"{% endif %}><span class="tab-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m10 8.5 5 3.5-5 3.5z"/></svg></span><span class="tab-label">OpenPlays</span></a>
+  <a href="{% url 'player:attendance' %}"{% if view == 'player:attendance' %} aria-current="page"{% endif %}><span class="tab-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M4 10h16M9 15l2 2 4-4"/></svg></span><span class="tab-label">Attendance</span></a>
+  <a href="{% url 'player:rewards' %}"{% if view == 'player:rewards' %} aria-current="page"{% endif %}><span class="tab-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="9" width="17" height="11" rx="2"/><path d="M12 9v11M3.5 13h17M12 9C11 6 7.5 5.500 7.500 7.800 7.500 9 9.500 9 12 9zm0 0c1-3 4.500-3.500 4.500-1.200C16.500 9 14.500 9 12 9z"/></svg></span><span class="tab-label">Rewards</span></a>
+  <a href="{% url 'player:profile' %}"{% if view == 'player:profile' %} aria-current="page"{% endif %}><span class="tab-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.500" r="3.500"/><path d="M5 20c.8-3.600 3.600-5.500 7-5.500s6.200 1.900 7 5.500"/></svg></span><span class="tab-label">Profile</span></a>
+</nav>
+{% endwith %}
 <main class="page-shell player-shell">
   {% include "organizer/_messages.html" %}
   {% block player_content %}{% endblock %}
 </main>
+<footer class="site-footer player-footer"><span>Dink.</span> Rally. <span>Laugh.</span> Repeat.</footer>
 {% endblock %}

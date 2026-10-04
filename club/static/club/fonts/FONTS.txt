@@ -1,0 +1,6 @@
+Self-hosted web font (Latin subset, WOFF2), served from this app so pages make no requests to Google.
+
+Inter   Copyright The Inter Project Authors   https://github.com/rsms/inter
+
+Licensed under the SIL Open Font License, Version 1.1: https://openfontlicense.org
+The font is used unmodified. Glyphs outside the Latin subset (for example the peso sign) fall back to the system font.

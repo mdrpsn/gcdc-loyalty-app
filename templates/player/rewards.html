@@ -2,7 +2,30 @@
 {% block title %}My rewards · Got Cha Dink Club{% endblock %}
 {% block player_content %}
 <div class="page-heading"><p class="eyebrow">Club perks</p><h1>My rewards</h1><p>Ask an organizer to apply an available reward at OpenPlay.</p></div>
-<section class="reward-section"><h2>Available</h2>{% include "player/_reward_list.html" with rewards=available %}</section>
-<section class="reward-section"><h2>Redeemed</h2>{% include "player/_reward_list.html" with rewards=redeemed %}</section>
-<section class="reward-section"><h2>Revoked</h2>{% include "player/_reward_list.html" with rewards=revoked %}</section>
+{% if upcoming %}
+{% with next=upcoming.0 %}
+<section class="panel-dark court-bg level-card" aria-labelledby="next-title">
+  <span class="eyebrow">Next milestone</span>
+  <h2 id="next-title">{{ next.milestone.name }}</h2>
+  <progress value="{{ next.percent }}" max="100" aria-label="Progress toward {{ next.milestone.name }}">{{ next.percent }}%</progress>
+  <p>{{ next.remaining }} more completed OpenPlay{{ next.remaining|pluralize }} to unlock at {{ next.milestone.threshold }}.</p>
+</section>
+{% endwith %}
+{% endif %}
+<section class="reward-section"><h2>Available</h2><div class="reward-grid">{% include "player/_reward_list.html" with rewards=available %}</div></section>
+<section class="reward-section"><h2>Redeemed</h2><div class="reward-grid">{% include "player/_reward_list.html" with rewards=redeemed %}</div></section>
+<section class="reward-section"><h2>Revoked</h2><div class="reward-grid">{% include "player/_reward_list.html" with rewards=revoked %}</div></section>
+{% if upcoming %}
+<section class="reward-section"><h2>Upcoming milestone rewards</h2>
+  <div class="reward-grid">
+    {% for item in upcoming %}
+    <article class="reward-card is-locked"><span class="reward-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.500" width="14" height="10" rx="2"/><path d="M8 10.500V8a4 4 0 0 1 8 0v2.500"/></svg></span>
+      <div class="reward-body"><h3>{{ item.milestone.name }}</h3><span class="status-note locked">Locked</span>
+        {% for benefit in item.milestone.benefits %}<p>{{ benefit.description }}</p>{% endfor %}
+        <progress value="{{ item.percent }}" max="100" aria-label="Progress toward {{ item.milestone.name }}">{{ item.percent }}%</progress>
+        <p class="muted">{{ item.remaining }} OpenPlay{{ item.remaining|pluralize }} to unlock</p></div></article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 {% endblock %}

@@ -75,6 +75,27 @@ def get_loyalty_summary(player):
     )
 
 
+@dataclass(frozen=True)
+class UpcomingMilestone:
+    milestone: LoyaltyMilestone
+    remaining: int
+    percent: int
+
+
+def get_upcoming_milestones(player):
+    """Active milestones not yet reached by completed attendance, nearest first, with progress."""
+    completed = _completed_attendances(player)
+    return tuple(
+        UpcomingMilestone(
+            milestone=milestone,
+            remaining=milestone.threshold - completed,
+            percent=completed * 100 // milestone.threshold,
+        )
+        for milestone in LoyaltyMilestone.objects.filter(is_active=True, threshold__gt=completed)
+        .exclude(issuances__player=player).order_by("threshold")
+    )
+
+
 def _audit_reward(action, issuance, actor, **details):
     return AuditEvent.objects.create(
         actor=actor,

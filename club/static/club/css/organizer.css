@@ -11,10 +11,10 @@
   --brand-deep:#0a1630;
   --brand:#0d1b36;
   --brand-soft:#16264a;
-  --accent:#ff6a13;
-  --accent-hover:#ff8240;
-  --accent-ink:#c2410c;
-  --accent-tint:#ffe9d9;
+  --accent:#ffa366;
+  --accent-hover:#ffb98a;
+  --accent-ink:#2d3e66;
+  --accent-tint:#fff1e6;
   --ball:#f5d315;
   --chip:#f5d315;
   --bg:#f2f4fa;
@@ -713,7 +713,7 @@ h1 {
 }
 .pill {
   letter-spacing:.06em;
-  color:#9a3412
+  color:var(--brand)
 }
 .score-strip>div {
   background:linear-gradient(160deg,var(--brand),var(--brand-soft));
@@ -728,7 +728,7 @@ h1 {
 }
 .button.primary {
   background:var(--accent);
-  border-color:var(--accent);
+  border-color:#f2905a;
   color:var(--ink)
 }
 .button.primary:hover {
@@ -768,7 +768,7 @@ h1 {
 }
 .search-panel input:focus,.stack input:not([type=checkbox]):focus,.stack select:focus,.stack textarea:focus {
   border-color:var(--brand);
-  box-shadow:0 0 0 3px rgba(255,106,19,.35)
+  box-shadow:0 0 0 3px rgba(255,163,102,.35)
 }
 .back-link {
   font-weight:700
@@ -776,7 +776,7 @@ h1 {
 .auth-shell {
   position:relative;
   overflow:hidden;
-  background:radial-gradient(circle at 12% 8%,rgba(255,106,19,.22),transparent 42%),linear-gradient(160deg,var(--brand-deep),var(--brand) 60%,var(--brand-soft))
+  background:radial-gradient(circle at 12% 8%,rgba(255,163,102,.22),transparent 42%),linear-gradient(160deg,var(--brand-deep),var(--brand) 60%,var(--brand-soft))
 }
 .auth-card {
   position:relative;
@@ -803,7 +803,11 @@ h1 {
   color:var(--muted)
 }
 .site-footer span,.auth-tagline span {
-  color:var(--accent-ink)
+  color:var(--accent-ink);
+  text-decoration:underline;
+  text-decoration-color:var(--accent);
+  text-decoration-thickness:2px;
+  text-underline-offset:3px
 }
 @media(max-width:700px) {
   .header-inner {

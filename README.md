@@ -108,3 +108,14 @@ Set `DJANGO_SETTINGS_MODULE=config.settings.production` in the hosting environme
 The approved target is Render: one Python 3.14 WSGI web service and one paid Render PostgreSQL instance per environment, with separate staging and production resources in Singapore. Gunicorn and WhiteNoise are locked dependencies. Render's build collects files into `staticfiles/`; WhiteNoise serves `/static/` from the WSGI service. The exact build, pre-deploy migration, start, health, and environment settings are in the [Render deployment guide](docs/RENDER_DEPLOYMENT.md). Exact paid plans, production domain, staging sender address, and monitoring alert recipient still require explicit decisions. The approved club timezone is `Asia/Manila`, but it has not been configured on a hosted service. No Render service has been provisioned.
 
 Local reset emails are written to ignored `.local-emails/`; production uses Resend SMTP after sender verification. A repeatable local restore check is `uv run --locked --env-file .env python scripts/verify_local_restore.py`. Render PITR, offsite logical backups, Better Stack alerts, and real SMTP delivery are not configured yet.
+
+### Encrypted logical backup (manual, local files only)
+
+`scripts/backup_database.py` runs `pg_dump -Fc` with the `DB_*` variables, encrypts the dump with Fernet (AES-128-CBC plus HMAC-SHA256, from the locked `cryptography` package), and writes `backups/gcdc_<DB_NAME>_<UTC YYYYMMDDTHHMMSSZ>.dump.enc`. No plaintext dump touches disk, an existing file is never overwritten, and a failed dump or encryption leaves no file. The whole dump is held in memory (fine at club scale). It needs `pg_dump` on `PATH` or `PG_BIN`, and a key that you keep **outside the repository and the database host**; without the key a backup cannot be restored. Generate it once with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`, store it in a password manager, and set it as `BACKUP_ENCRYPTION_KEY`.
+
+```powershell
+uv run --locked --env-file .env python scripts/backup_database.py            # writes ./backups
+uv run --locked --env-file .env python scripts/verify_local_restore.py backups\gcdc_gcdc_dev_20261008T030405Z.dump.enc
+```
+
+The second command decrypts the file, restores it into a new scratch database, runs `check`, `migrate --check`, and `/health/`, prints row counts to compare with the source, and drops only that scratch database. `verify_local_restore.py` with no argument runs the same path on synthetic data. This is not scheduled, off-site, or retained: see the launch checklist.

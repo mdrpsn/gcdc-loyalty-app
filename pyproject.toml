@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Got Cha Dink Club loyalty application foundation"
 requires-python = ">=3.14,<3.15"
 dependencies = [
+    "cryptography>=46,<48",
     "Django>=6.1.1,<6.2",
     "gunicorn>=26.2,<27",
     "psycopg[binary]>=3.3.6,<3.4",

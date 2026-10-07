@@ -1,16 +1,24 @@
-"""Exercise pg_dump/pg_restore using two newly created local scratch databases.
+"""Exercise the encrypted logical backup and pg_restore using local scratch databases.
 
 Run with the development database environment and optional PG_BIN directory.
 No existing database is read, modified, or dropped.
+
+Without arguments: seeds a synthetic source database, backs it up with
+backup_database.py using a throwaway key, restores that backup into a second
+scratch database, and compares ledger counts.
+With one argument (an encrypted .dump.enc file): restores it into a new scratch
+database using BACKUP_ENCRYPTION_KEY and runs the same checks. No source
+comparison is possible, so the restored counts are printed for you to compare.
 """
 
 import os
-import shutil
 import subprocess
 import sys
-import tempfile
 import uuid
 from pathlib import Path
+
+import backup_database as backups
+from cryptography.fernet import Fernet
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,25 +33,11 @@ if not all((PORT, USER, PASSWORD)):
 if os.environ.get("DJANGO_SETTINGS_MODULE") == "config.settings.production":
     raise SystemExit("Restore check cannot use production settings")
 
-pg_bin = Path(os.environ.get("PG_BIN", "")) if os.environ.get("PG_BIN") else None
-if pg_bin is None and os.name == "nt":
-    candidate = Path(os.environ.get("LOCALAPPDATA", "")) / "gcdc-postgres/pgsql/bin"
-    if (candidate / "pg_dump.exe").is_file():
-        pg_bin = candidate
-
-
-def pg_tool(name):
-    if pg_bin:
-        path = pg_bin / (name + (".exe" if os.name == "nt" else ""))
-        if path.is_file():
-            return str(path)
-    found = shutil.which(name)
-    if not found:
-        raise SystemExit(f"{name} is required on PATH or in PG_BIN")
-    return found
-
-
-tools = {name: pg_tool(name) for name in ("createdb", "dropdb", "pg_dump", "pg_restore")}
+backup_file = Path(sys.argv[1]) if len(sys.argv) > 1 else None
+try:
+    tools = {name: backups.find_pg_tool(name) for name in ("createdb", "dropdb", "pg_restore")}
+except backups.BackupError as error:
+    raise SystemExit(str(error))
 pg_env = {**os.environ, "PGPASSWORD": PASSWORD}
 suffix = uuid.uuid4().hex[:12]
 source = f"gcdc_restore_source_{suffix}"
@@ -51,10 +45,13 @@ restored = f"gcdc_restore_target_{suffix}"
 created = []
 
 
-def run(args, *, env=pg_env):
-    result = subprocess.run(args, env=env, cwd=ROOT, text=True, capture_output=True, check=False)
+def run(args, *, env=pg_env, input_data=None):
+    result = subprocess.run(
+        args, env=env, cwd=ROOT, input=input_data, capture_output=True, check=False,
+    )
     if result.returncode:
-        raise RuntimeError(f"{Path(args[0]).name} failed: {result.stderr[-1200:]}")
+        detail = result.stderr.decode(errors="replace")[-1200:]
+        raise RuntimeError(f"{Path(args[0]).name} failed: {detail}")
 
 
 def pg_args(name, *extra):
@@ -75,17 +72,20 @@ def counts(database):
             }
 
 
-try:
-    for database in (source, restored):
-        run(pg_args("createdb", "-O", USER, database))
-        created.append(database)
-    source_env = {**os.environ, "DJANGO_SETTINGS_MODULE": "config.settings.development", "DB_NAME": source}
-    run([sys.executable, "manage.py", "migrate", "--noinput"], env=source_env)
-    os.environ.update(source_env)
-    sys.path.insert(0, str(ROOT))
-    import django
 
-    django.setup()
+def restore_and_check(data, source_env):
+    run(pg_args("pg_restore", "--no-owner", "--no-acl", "--exit-on-error", "-d", restored), input_data=data)
+    restored_env = {**source_env, "DB_NAME": restored}
+    run([sys.executable, "manage.py", "check"], env=restored_env)
+    run([sys.executable, "manage.py", "migrate", "--check"], env=restored_env)
+    run([
+        sys.executable, "manage.py", "shell", "-c",
+        "from django.test import Client; assert Client().get('/health/', HTTP_HOST='127.0.0.1').status_code == 200",
+    ], env=restored_env)
+    return counts(restored)
+
+
+def seed_source():
     from datetime import timedelta
 
     from django.contrib.auth import get_user_model
@@ -120,21 +120,42 @@ try:
     redeem_reward(issuance_id=issuance.pk, player_id=player.pk, openplay_id=target.pk, actor=actor)
     connections.close_all()
 
-    with tempfile.TemporaryDirectory(prefix="gcdc_restore_check_") as directory:
-        dump = str(Path(directory) / "synthetic.dump")
-        run(pg_args("pg_dump", "-Fc", "-f", dump, source))
-        run(pg_args("pg_restore", "--no-owner", "--no-acl", "--exit-on-error", "-d", restored, dump))
-        before, after = counts(source), counts(restored)
+
+try:
+    base_env = {**os.environ, "DJANGO_SETTINGS_MODULE": "config.settings.development"}
+    if backup_file is not None:
+        # Restore-test an existing encrypted backup into one new scratch database.
+        data = backups.decrypt_backup(backup_file, backups.load_key(os.environ))
+        run(pg_args("createdb", "-O", USER, restored))
+        created.append(restored)
+        print(f"Backup restored and checked. Compare these counts with the source: {restore_and_check(data, base_env)}")
+    else:
+        import tempfile
+
+        for database in (source, restored):
+            run(pg_args("createdb", "-O", USER, database))
+            created.append(database)
+        source_env = {**base_env, "DB_NAME": source}
+        run([sys.executable, "manage.py", "migrate", "--noinput"], env=source_env)
+        os.environ.update(source_env)
+        sys.path.insert(0, str(ROOT))
+        import django
+
+        django.setup()
+        seed_source()
+
+        key = Fernet.generate_key()
+        with tempfile.TemporaryDirectory(prefix="gcdc_restore_check_") as directory:
+            backup = backups.create_backup(
+                {**os.environ, "DB_NAME": source, "BACKUP_ENCRYPTION_KEY": key.decode()}, directory,
+            )
+            data = backups.decrypt_backup(backup, key)
+            before, after = counts(source), restore_and_check(data, source_env)
         if before != after or before["club_rewardredemption"] != 1:
             raise RuntimeError(f"Restored ledger counts differ: {before} vs {after}")
-        restored_env = {**source_env, "DB_NAME": restored}
-        run([sys.executable, "manage.py", "check"], env=restored_env)
-        run([sys.executable, "manage.py", "migrate", "--check"], env=restored_env)
-        run([
-            sys.executable, "manage.py", "shell", "-c",
-            "from django.test import Client; assert Client().get('/health/', HTTP_HOST='127.0.0.1').status_code == 200",
-        ], env=restored_env)
-        print(f"Synthetic local restore verified: {after}")
+        print(f"Synthetic encrypted-backup restore verified: {after}")
+except backups.BackupError as error:
+    raise SystemExit(f"Restore check failed: {error}")
 finally:
     if "django" in sys.modules:
         from django.db import connections

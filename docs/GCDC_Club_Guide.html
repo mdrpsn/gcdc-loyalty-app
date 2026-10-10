@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Got Cha Dink Club App: How a Session Runs</title>
+<style>
+  :root { --navy:#0f1b3a; --orange:#f58a3c; --ink:#1c2230; --muted:#5d6577; --line:#dfe3ea; --soft:#f5f7fa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:var(--ink); background:#fff; }
+  main { max-width:760px; margin:0 auto; padding:24px 18px 48px; }
+  header { border-bottom:4px solid var(--orange); padding-bottom:14px; margin-bottom:8px; }
+  h1 { font-size:26px; line-height:1.2; margin:0 0 6px; color:var(--navy); }
+  h2 { font-size:19px; margin:30px 0 8px; color:var(--navy); }
+  h2 .n { display:inline-block; min-width:28px; height:28px; line-height:28px; text-align:center; background:var(--navy); color:#fff; border-radius:50%; font-size:15px; margin-right:8px; }
+  p { margin:6px 0; }
+  ul, ol { margin:6px 0; padding-left:22px; }
+  li { margin:3px 0; }
+  .sub { color:var(--muted); margin:0; }
+  .who { display:inline-block; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:2px 8px; border-radius:99px; background:#fde6d2; color:#8a4311; margin-bottom:4px; }
+  .who.player { background:#dff0e6; color:#1d5c37; }
+  .who.admin { background:#e3e7f6; color:#2a3a82; }
+  .box { background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:10px 0; }
+  .warn { background:#fff6e5; border-color:#f2d9a6; }
+  .stop { background:#fdecec; border-color:#f1b9b9; }
+  table { border-collapse:collapse; width:100%; margin:8px 0; font-size:15px; }
+  th, td { border:1px solid var(--line); padding:7px 9px; text-align:left; vertical-align:top; }
+  th { background:var(--soft); }
+  .btn { font-weight:700; color:var(--navy); background:#fde6d2; padding:0 5px; border-radius:4px; white-space:nowrap; }
+  footer { margin-top:30px; color:var(--muted); font-size:13px; border-top:1px solid var(--line); padding-top:10px; }
+  @media print { main { padding:0; } h2 { break-after:avoid; } .box, table { break-inside:avoid; } }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>Got Cha Dink Club App: how a session runs</h1>
+  <p class="sub">From adding a venue to giving a reward. Website: <strong>playpass.gotchadinkclub.com</strong></p>
+</header>
+
+<div class="box">
+  <p><strong>The one idea behind everything:</strong> one OpenPlay attended = one point toward rewards. The app counts <em>OpenPlays attended</em>, not games or matches played. A player's attendance only counts after an admin approves it, and rewards are only given after the session has been marked <em>Complete</em>.</p>
+</div>
+
+<h2><span class="n">0</span>Logging in</h2>
+<ul>
+  <li>Log in at <strong>/login/</strong> on your phone or laptop. Your own email and your own password. Never share your password.</li>
+  <li>The main screen is the <strong>Organizer desk</strong>. Its menu has: OpenPlays, Players, Attendance approvals, Reward requests, Link accounts, Audit.</li>
+  <li>Forgot your password? On the login page tap <span class="btn">Forgot password</span> and use the link that arrives by email.</li>
+</ul>
+
+<h2><span class="n">1</span>Add a venue <span class="sub">(once per place)</span></h2>
+<span class="who">Admin / Organizer</span>
+<ol>
+  <li>On the Organizer desk tap <span class="btn">Add a venue</span>.</li>
+  <li>Type the venue name and save. <strong>Check the spelling first.</strong> There is no rename or delete screen, so a wrong name has to be fixed by whoever manages the website.</li>
+</ol>
+
+<h2><span class="n">2</span>Schedule an OpenPlay</h2>
+<span class="who">Admin / Organizer</span>
+<ol>
+  <li>On the Organizer desk tap <span class="btn">Schedule an OpenPlay</span>.</li>
+  <li>Choose the venue, then <strong>Starts</strong> and <strong>Ends</strong>. Times are Philippine time.</li>
+  <li>Save, then look at the session card to make sure the date and times are right.</li>
+</ol>
+<div class="box warn"><p><strong>Made a mistake?</strong> There is no edit screen. Open the session, <strong>cancel it with a reason</strong>, and schedule it again. Nothing is ever deleted. The cancelled one stays in the history.</p></div>
+
+<h2><span class="n">3</span>Players sign up <span class="sub">(once per player)</span></h2>
+<span class="who player">Player</span>
+<ol>
+  <li>The player opens <strong>/signup/</strong> and enters their email. A link arrives by email and works for <strong>30 minutes</strong>.</li>
+  <li>After tapping the link they fill in: full name, contact number, <strong>ReClub name</strong>, <strong>ReClub profile link</strong>, and a password.</li>
+  <li>They can now register for sessions and submit attendance.</li>
+</ol>
+<div class="box warn">
+  <p><strong>What is "Link accounts" for?</strong> It joins a person's <em>new login</em> to an <em>older record</em> the club already has for them (for example someone we wrote down before the app existed), so their past attendance is not lost.</p>
+  <ul>
+    <li>Only an <strong>admin</strong> can do it, and only for someone the club already had on record. A brand-new player never needs it.</li>
+    <li>If a player's ReClub link is already in our records, sign-up is blocked on purpose. That is the signal to use Link accounts.</li>
+    <li>How: <span class="btn">Link accounts</span> → type the account's exact email → compare the old and new records side by side → tick <em>"I verified this person's identity outside the app"</em> → confirm.</li>
+    <li><strong>Check who they are first</strong> (for example their ReClub profile and past sessions). Never link just because the emails look alike. There is no undo and no "merge players" button.</li>
+    <li>An old attendance entry that was never linked <strong>cannot be approved</strong> until its player is linked to an account.</li>
+  </ul>
+</div>
+
+<h2><span class="n">4</span>Players register for a session</h2>
+<span class="who player">Player</span>
+<ol>
+  <li>Open <strong>Upcoming OpenPlays</strong> and tap <span class="btn">Register</span> next to the session.</li>
+  <li>Changed their mind? Tap <span class="btn">Cancel registration</span>. This only works before the session starts.</li>
+</ol>
+
+<h2><span class="n">5</span>On the day: attendance</h2>
+<span class="who">Admin / Organizer</span> <span class="who player">Player</span>
+<ol>
+  <li>Open the session on your phone to see its roster (registered players).</li>
+  <li><strong>After the session has started</strong>, attendance can be sent for approval in either of two ways:
+    <ul>
+      <li><strong>The player does it:</strong> Submit attendance → pick the OpenPlay → <span class="btn">Submit for approval</span>.</li>
+      <li><strong>Staff does it for a signed-up player</strong> from the roster. It is the same submission.</li>
+    </ul>
+  </li>
+  <li>A submission shows as <strong>Pending approval</strong>. It does <strong>not count yet</strong>.</li>
+</ol>
+<div class="box stop"><p><strong>Players who have not signed up cannot be added on the spot.</strong> They must sign up first (step 3). The old "walk-in with no account" shortcut is switched off on purpose.</p></div>
+
+<h2><span class="n">6</span>Approve attendance</h2>
+<span class="who admin">Admin only</span>
+<ol>
+  <li>Open <span class="btn">Attendance approvals</span>. Use the tabs: <strong>All / Pending approval / Approved / Declined</strong>.</li>
+  <li>For each submission compare the session, the roster, the player's details, and their ReClub profile.</li>
+  <li>Tap <span class="btn">Approve</span>, or <span class="btn">Decline</span> and type a reason. A declined player can send it again.</li>
+</ol>
+<div class="box stop"><p><strong>Never approve someone who was not there.</strong> Approving is what gives the player their point toward rewards.</p></div>
+
+<h2><span class="n">7</span>Complete the session</h2>
+<span class="who">Admin / Organizer</span>
+<ol>
+  <li><strong>Only after the scheduled end time</strong>, open the session and tap <span class="btn">Review and complete OpenPlay</span>.</li>
+  <li>Check the two numbers: <strong>Checked in</strong> and <strong>Registered, unchecked</strong>. Unchecked players are not counted as present.</li>
+  <li>Tap <span class="btn">Confirm completion</span>.</li>
+</ol>
+<div class="box warn"><p><strong>Don't forget this step.</strong> If a session is never completed, players' progress shows but reward eligibility stays pending. Never issue a reward by hand. Complete the session and the app does it.</p></div>
+
+<h2><span class="n">8</span>Rewards</h2>
+<p>The app counts approved attendance at <strong>completed</strong> sessions and gives rewards automatically at these milestones:</p>
+<table>
+  <tr><th>OpenPlays attended</th><th>Name</th><th>What the player gets</th></tr>
+  <tr><td>10</td><td>Dinker</td><td>₱50 off one OpenPlay (valid 30 days)</td></tr>
+  <tr><td>25</td><td>Dink Addict</td><td>Recognition</td></tr>
+  <tr><td>50</td><td>Got Cha Loyalist</td><td>FREE OpenPlay (valid 30 days)</td></tr>
+  <tr><td>75</td><td>Club Veteran</td><td>FREE OpenPlay (30 days) + 1 overgrip (valid 60 days)</td></tr>
+  <tr><td>100</td><td>Century Club</td><td>FREE OpenPlay (30 days) + Century Club shirt (valid 60 days)</td></tr>
+</table>
+<p class="sub">Every milestone also comes with recognition on the player's page. "Valid" counts from the day the reward is earned.</p>
+
+<h3 style="margin:18px 0 4px">How a player uses a discount or free OpenPlay</h3>
+<span class="who player">Player</span>
+<ol>
+  <li>My rewards → <span class="btn">Use reward</span> → choose the upcoming OpenPlay they want to use it for → <span class="btn">Request this reward</span>.</li>
+  <li>Sending the request does <strong>not</strong> use up the reward, and they can cancel it until it is approved.</li>
+  <li><strong>Discount:</strong> they pay the regular fee less ₱50 by GCash or cash and send proof of payment to the club as usual. <strong>Free OpenPlay:</strong> no payment for that session.</li>
+</ol>
+
+<h3 style="margin:18px 0 4px">How you approve it</h3>
+<span class="who admin">Admin only</span>
+<ol>
+  <li>Open <span class="btn">Reward requests</span> → <strong>Requested</strong>.</li>
+  <li>The card tells you what to collect (the fee less ₱50, or nothing for a free OpenPlay). <strong>Check the payment first</strong> (GCash or cash).</li>
+  <li>Tap <span class="btn">Approve and redeem</span>. Or <span class="btn">Decline</span> with a reason, or <span class="btn">Release</span> to free the reward again.</li>
+</ol>
+
+<h3 style="margin:18px 0 4px">Giving a reward directly (overgrip, shirt, or at the court)</h3>
+<span class="who">Admin / Organizer</span>
+<ol>
+  <li>Open <strong>Players</strong>, find the player, check the reward is <strong>Available</strong>.</li>
+  <li>Tap <span class="btn">Redeem</span>, choose the OpenPlay if it applies, tap <span class="btn">Confirm redemption</span>.</li>
+  <li>Hand over the benefit yourself. <strong>The app records the use only. It does not take payment.</strong></li>
+</ol>
+
+<h3 style="margin:18px 0 4px">Expired rewards</h3>
+<span class="who admin">Admin only</span>
+<ul>
+  <li>An expired reward cannot be used normally. An admin can <strong>Extend expiry</strong> (with a reason), or redeem it as a goodwill exception with a reason. Both are recorded in the audit log.</li>
+</ul>
+
+<h2><span class="n">9</span>Corrections <span class="sub">(admin only)</span></h2>
+<ul>
+  <li><strong>Wrong attendance:</strong> open the player, tap <span class="btn">Correct</span> next to that attendance, and give a specific reason. The record is marked void but stays in the history, and an admin can restore it later.</li>
+  <li><strong>Forgot someone after the session is done:</strong> on a completed session an admin uses <span class="btn">Add historical attendance</span>, searches the player, and gives a reason.</li>
+  <li><strong>A completed session was a mistake:</strong> only an admin can cancel it (<span class="btn">Cancel OpenPlay</span>), with a reason. Attendance and rewards are recalculated, nothing is deleted.</li>
+  <li><strong>Who did what?</strong> <span class="btn">Audit</span> shows every action, newest first. It is read-only. Don't type passwords into any reason box.</li>
+</ul>
+
+<h2><span class="n">10</span>If something goes wrong</h2>
+<table>
+  <tr><th>Problem</th><th>What to do</th></tr>
+  <tr><td>The app won't open</td><td>Run the session on a <strong>paper roster</strong>. When the app is back, an admin enters each missing attendance with <strong>Add historical attendance</strong>. Tell the technical operator.</td></tr>
+  <tr><td>Player says their login is wrong</td><td>Use <strong>Forgot password</strong> on the login page.</td></tr>
+  <tr><td>Wrong session created</td><td>Cancel it with a reason and schedule a new one.</td></tr>
+  <tr><td>Possible duplicate player</td><td>Don't merge anything during a live session. Ask an admin to check afterward.</td></tr>
+  <tr><td>Reward looks wrong</td><td>Don't change anything by hand. Look at the player's history and the Audit page first.</td></tr>
+</table>
+
+<h2><span class="n">✓</span>Quick checklist for every session</h2>
+<ol>
+  <li>Venue exists and the session is scheduled with the right date and times.</li>
+  <li>Players are signed up and registered.</li>
+  <li>After the start: attendance submitted.</li>
+  <li>Admin approves only the people who were actually there.</li>
+  <li><strong>After the scheduled end: complete the session</strong> (Review and complete OpenPlay → Confirm completion).</li>
+  <li>Rewards: check <em>Reward requests</em>, confirm payment, approve.</li>
+</ol>
+
+<div class="box">
+  <p><strong>House rules:</strong> keep your password private and unique. Players' names, numbers and ReClub links are personal data, so use them only for running sessions. Don't create fake players or fake sessions on the real site. Money (GCash and cash) is handled outside the app.</p>
+</div>
+
+<footer>Got Cha Dink Club. Dink. Rally. Laugh. Repeat.</footer>
+</main>
+</body>
+</html>

@@ -135,16 +135,46 @@ class OpenPlayNameTests(TestCase):
         openplay.refresh_from_db()
         self.assertEqual(openplay.name, "After")
 
-    def test_session_page_links_to_the_rename_screen(self):
+    def test_session_page_has_an_inline_rename_form_in_the_heading(self):
+        openplay = self.make(name="Sunday Dinkers")
+        rename_url = reverse("organizer:rename", args=[openplay.pk])
+        self.client.force_login(self.organizer)
+        page = self.client.get(reverse("organizer:session", args=[openplay.pk]))
+        html = page.content.decode()
+        # The name itself is the control: a POST form to the audited rename endpoint, with CSRF.
+        form_start = html.index(f'action="{rename_url}"')
+        form = html[form_start:html.index("</form>", form_start)]
+        self.assertIn("csrfmiddlewaretoken", html[html.rindex("<form", 0, form_start):form_start + len(form)])
+        self.assertIn('name="name"', form)
+        self.assertIn('value="Sunday Dinkers"', form)
+        self.assertIn('maxlength="80"', form)
+        self.assertIn('aria-label="Save name"', form)
+        self.assertIn("data-rename-cancel", form)
+        # Visible without scrolling: before the player search and the session actions.
+        self.assertLess(form_start, html.index("Find a player"))
+        self.assertLess(form_start, html.index("Session actions"))
+
+    def test_inline_form_shows_the_default_name_as_a_placeholder_when_unnamed(self):
         openplay = self.make()
         self.client.force_login(self.organizer)
         page = self.client.get(reverse("organizer:session", args=[openplay.pk]))
-        self.assertContains(page, reverse("organizer:rename", args=[openplay.pk]), count=1)
-        html = page.content.decode()
-        link = html.index(reverse("organizer:rename", args=[openplay.pk]))
-        # Visible without scrolling: in the page heading, before the player search and the roster.
-        self.assertLess(link, html.index("Find a player"))
-        self.assertLess(link, html.index("Session actions"))
+        self.assertContains(page, 'placeholder="OpenPlay at Pickle Star"')
+        self.assertContains(page, 'value=""')
+
+    def test_posting_from_the_inline_form_saves_and_returns_to_the_same_session(self):
+        openplay = self.make(name="Before")
+        self.client.force_login(self.organizer)
+        page = self.client.post(reverse("organizer:rename", args=[openplay.pk]), {"name": "After inline"}, follow=True)
+        self.assertEqual(page.redirect_chain, [(reverse("organizer:session", args=[openplay.pk]), 302)])
+        self.assertContains(page, "OpenPlay name saved.")
+        self.assertContains(page, "After inline")
+
+    def test_without_javascript_there_is_still_a_link_to_the_rename_screen(self):
+        openplay = self.make()
+        self.client.force_login(self.organizer)
+        page = self.client.get(reverse("organizer:session", args=[openplay.pk]))
+        self.assertContains(page, "<noscript>")
+        self.assertContains(page, "Rename OpenPlay")
 
     # --- what players see
 

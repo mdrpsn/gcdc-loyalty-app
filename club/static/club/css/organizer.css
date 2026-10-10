@@ -960,3 +960,66 @@ h1 {
     animation:ball-bounce .6s ease
   }
 }
+
+.inline-rename {
+  margin:0
+}
+.inline-rename-title {
+  cursor:pointer;
+  display:inline-block;
+  margin:0 0 6px;
+  border-bottom:2px dashed transparent
+}
+.inline-rename-title[hidden] {
+  display:none
+}
+.inline-rename-title:hover,.inline-rename-title:focus-visible {
+  border-bottom-color:var(--accent)
+}
+.inline-rename-title .rename-pencil {
+  font-size:.55em;
+  color:var(--muted);
+  vertical-align:middle
+}
+.inline-rename-edit {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0 0 6px
+}
+.inline-rename-edit[hidden] {
+  display:none
+}
+.inline-rename-edit input {
+  flex:1;
+  min-width:0;
+  font:inherit;
+  font-size:1.35rem;
+  font-weight:800;
+  padding:8px 12px;
+  border:2px solid var(--accent-ink);
+  border-radius:11px;
+  background:#fff;
+  color:var(--ink)
+}
+.icon-button {
+  flex:none;
+  width:46px;
+  height:46px;
+  border-radius:11px;
+  border:1px solid #b3bdd3;
+  background:#fff;
+  color:var(--accent-ink);
+  font-size:1.3rem;
+  font-weight:800;
+  cursor:pointer
+}
+.icon-button.confirm {
+  background:var(--ok);
+  border-color:var(--ok);
+  color:#fff
+}
+.icon-button:focus-visible {
+  outline:3px solid var(--focus);
+  outline-offset:2px
+}

@@ -120,6 +120,8 @@ class OpenPlay(HistoricalModel):
         CANCELLED = "CANCELLED", "Cancelled"
 
     venue = models.ForeignKey(Venue, on_delete=models.PROTECT, related_name="openplays")
+    # Optional label chosen by the club; blank means "OpenPlay at <venue>".
+    name = models.CharField(max_length=80, blank=True)
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField()
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.SCHEDULED)
@@ -142,7 +144,11 @@ class OpenPlay(HistoricalModel):
         indexes = [models.Index(fields=["status", "starts_at"], name="club_openplay_status_start_idx")]
 
     def __str__(self):
-        return f"OpenPlay {self.pk} at {self.venue}"
+        return self.display_name
+
+    @property
+    def display_name(self):
+        return self.name or f"OpenPlay at {self.venue}"
 
     @property
     def period(self):

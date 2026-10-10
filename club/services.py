@@ -176,17 +176,33 @@ def create_venue(*, name, actor):
 
 
 @transaction.atomic
-def create_openplay(*, venue_id, starts_at, ends_at, actor):
+def create_openplay(*, venue_id, starts_at, ends_at, actor, name=""):
     require_organizer(actor)
     if not timezone.is_aware(starts_at) or not timezone.is_aware(ends_at):
         raise ValidationError("OpenPlay times must include a timezone")
     venue = Venue.objects.get(pk=venue_id)
     if not venue.is_active:
         raise ValidationError("Cannot schedule at an inactive venue")
-    openplay = OpenPlay(venue=venue, starts_at=starts_at, ends_at=ends_at)
+    openplay = OpenPlay(venue=venue, starts_at=starts_at, ends_at=ends_at, name=name.strip())
     openplay.full_clean()
     openplay.save()
-    _audit("OPENPLAY_CREATED", openplay, actor)
+    _audit("OPENPLAY_CREATED", openplay, actor, name=openplay.name)
+    return openplay
+
+
+@transaction.atomic
+def rename_openplay(*, openplay_id, name, actor):
+    """Change only the label of an OpenPlay; blank restores the default "OpenPlay at <venue>"."""
+    require_organizer(actor)
+    openplay = OpenPlay.objects.select_for_update().get(pk=openplay_id)
+    name = name.strip()
+    previous_name = openplay.name
+    if name == previous_name:
+        return openplay
+    openplay.name = name
+    openplay.full_clean(exclude=["venue", "starts_at", "ends_at"])
+    openplay.save(update_fields=["name", "updated_at"])
+    _audit("OPENPLAY_RENAMED", openplay, actor, previous_name=previous_name, name=name)
     return openplay
 
 

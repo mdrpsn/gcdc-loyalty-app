@@ -21,7 +21,7 @@
 </section>
 <div class="session-list">
 {% for row in page %}
-<article class="panel-dark court-bg history-tile"><div><h2>OpenPlay at {{ row.openplay.venue.name }}</h2><p>{{ row.openplay.starts_at|club_time:"M j, Y · g:i A" }} · {{ row.openplay.venue.name }}</p></div>
+<article class="panel-dark court-bg history-tile"><div><h2>{{ row.openplay.display_name }}</h2><p>{{ row.openplay.starts_at|club_time:"M j, Y · g:i A" }} · {{ row.openplay.venue.name }}</p></div>
 <strong class="status-note {% if row.status == 'VOID' or row.openplay.status == 'CANCELLED' %}invalid{% endif %}">{% if row.status == 'VOID' %}Void — does not count{% elif row.openplay.status == 'CANCELLED' %}Cancelled session — does not count{% elif row.openplay.status == 'SCHEDULED' %}Approved — session pending completion{% else %}Approved — counts{% endif %}</strong></article>
 {% empty %}<section class="card empty"><h2>No approved attendance yet</h2><p>Approved sessions will appear here.</p></section>{% endfor %}
 </div>

@@ -16,6 +16,7 @@ urlpatterns = [
     path("openplays/<int:openplay_id>/check-in/<int:player_id>/", views.check_in_player, name="check_in"),
     path("openplays/<int:openplay_id>/complete/", views.complete_session, name="complete"),
     path("openplays/<int:openplay_id>/cancel/", views.cancel_session, name="cancel"),
+    path("openplays/<int:openplay_id>/rename/", views.rename_session, name="rename"),
     path("schedule/openplays/new/", views.openplay_new, name="openplay_new"),
     path("schedule/venues/new/", views.venue_new, name="venue_new"),
     path("players/", views.player_search, name="players"),

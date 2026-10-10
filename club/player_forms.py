@@ -38,7 +38,8 @@ class OpenPlayChoiceField(forms.ModelChoiceField):
         from django.utils import timezone
 
         start = timezone.localtime(openplay.starts_at)
-        return f"{start:%b %d, %Y} · {openplay.period} · {start:%I:%M %p} · {openplay.venue.name}"
+        label = f"{start:%b %d, %Y} · {openplay.period} · {start:%I:%M %p} · {openplay.venue.name}"
+        return f"{openplay.name} · {label}" if openplay.name else label
 
 
 class RewardUseForm(forms.Form):

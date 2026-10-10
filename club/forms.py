@@ -25,7 +25,15 @@ class VenueForm(forms.Form):
         return value
 
 
-class OpenPlayForm(forms.Form):
+class OpenPlayNameForm(forms.Form):
+    name = forms.CharField(
+        max_length=80, required=False, label="Session name (optional)",
+        help_text="Players see this name. Leave blank to use “OpenPlay at” plus the venue.",
+    )
+
+
+class OpenPlayForm(OpenPlayNameForm):
+    field_order = ["venue", "name", "starts_at", "ends_at"]
     venue = forms.ModelChoiceField(queryset=Venue.objects.none(), empty_label="Choose a venue")
     starts_at = _local_datetime_field("Starts")
     ends_at = _local_datetime_field("Ends")

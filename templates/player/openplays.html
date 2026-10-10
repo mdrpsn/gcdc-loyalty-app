@@ -11,7 +11,7 @@
   <div class="session-main">
     <span class="chip">{% if session.member_can_register %}Upcoming{% else %}Happening now{% endif %}</span>
     <p class="eyebrow">{{ session.starts_at|date:"D, M j" }}</p>
-    <h2>OpenPlay at {{ session.venue.name }}</h2>
+    <h2>{{ session.display_name }}</h2>
     <p>{{ session.starts_at|club_time:"M j, Y · g:i A" }} – {{ session.ends_at|club_time:"g:i A" }} · {{ session.venue.name }}</p>
     <p class="status-note">{% if session.member_registration_status == 'ACTIVE' %}Registered{% elif session.member_registration_status == 'CANCELLED' %}Registration cancelled{% else %}Not registered{% endif %}</p>
   </div>

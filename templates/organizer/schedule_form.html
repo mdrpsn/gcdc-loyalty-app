@@ -1,12 +1,12 @@
 {% extends "organizer/base.html" %}
 {% block title %}{{ title }} · Got Cha Dink Club{% endblock %}
 {% block organizer_content %}
-<a class="back-link" href="{% url 'organizer:home' %}">← Organizer home</a>
+{% if back_url %}<a class="back-link" href="{{ back_url }}">← Back to roster</a>{% else %}<a class="back-link" href="{% url 'organizer:home' %}">← Organizer home</a>{% endif %}
 <section class="card confirm-card"><p class="eyebrow">Scheduling</p><h1>{{ title }}</h1>
   {% if time_zone %}<p class="muted">Times are in the club timezone ({{ time_zone }}).</p>{% endif %}
   {% if show_venue_link %}<p class="notice warning">No active venue yet. <a href="{% url 'organizer:venue_new' %}">Add a venue first.</a></p>{% endif %}
   <form method="post" class="stack">{% csrf_token %}{{ form.non_field_errors }}
-    {% for field in form %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}{% endfor %}
+    {% for field in form %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}{{ field.errors }}{% endfor %}
     <button class="button primary" type="submit">{{ submit_label }}</button>
   </form>
 </section>

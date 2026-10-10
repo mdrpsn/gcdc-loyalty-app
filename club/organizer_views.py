@@ -20,8 +20,8 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from accounts.permissions import is_admin, require_admin, require_organizer
 
 from .forms import (
-    AuditFilterForm, CorrectionForm, ExtensionForm, IdentityLinkForm, IdentityLookupForm, OpenPlayForm, ReasonForm,
-    RedemptionForm, VenueForm,
+    AuditFilterForm, CorrectionForm, ExtensionForm, IdentityLinkForm, IdentityLookupForm, OpenPlayForm,
+    OpenPlayNameForm, ReasonForm, RedemptionForm, VenueForm,
 )
 from .loyalty import (
     cancel_redemption_request, extend_reward_expiry, get_loyalty_summary, is_session_bound, redeem_reward,
@@ -40,6 +40,7 @@ from .services import (
     find_players,
     link_player_account,
     openplays_attended,
+    rename_openplay,
     review_attendance_submission,
     restore_attendance,
     submit_staff_attendance,
@@ -288,6 +289,25 @@ def cancel_session(request, openplay_id):
 
 @organizer_view
 @require_http_methods(["GET", "POST"])
+def rename_session(request, openplay_id):
+    openplay = get_object_or_404(OpenPlay.objects.select_related("venue"), pk=openplay_id)
+    form = OpenPlayNameForm(request.POST or None, initial={"name": openplay.name})
+    if request.method == "POST" and form.is_valid():
+        try:
+            rename_openplay(openplay_id=openplay_id, name=form.cleaned_data["name"], actor=request.user)
+        except ValidationError as error:
+            form.add_error(None, _error_text(error))
+        else:
+            messages.success(request, "OpenPlay name saved.")
+            return redirect("organizer:session", openplay_id=openplay_id)
+    return render(request, "organizer/schedule_form.html", {
+        "form": form, "title": f"Rename {openplay}", "submit_label": "Save name",
+        "back_url": reverse("organizer:session", args=[openplay_id]),
+    }, status=400 if request.method == "POST" else 200)
+
+
+@organizer_view
+@require_http_methods(["GET", "POST"])
 def venue_new(request):
     form = VenueForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -315,7 +335,7 @@ def openplay_new(request):
         try:
             openplay = create_openplay(
                 venue_id=data["venue"].pk, starts_at=data["starts_at"], ends_at=data["ends_at"],
-                actor=request.user,
+                actor=request.user, name=data["name"],
             )
         except (ValidationError, Venue.DoesNotExist) as error:
             form.add_error(None, _error_text(error) if isinstance(error, ValidationError) else "Venue not found.")

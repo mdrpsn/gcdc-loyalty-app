@@ -4,7 +4,7 @@
   <strong class="status-note {% if reward.status == 'REVOKED' or reward.is_expired %}invalid{% endif %}">{% if reward.is_expired %}Expired{% else %}{{ reward.get_status_display }}{% endif %}</strong>
   {% for benefit in reward.terms_snapshot.benefits %}<p>{{ benefit.description }}</p>{% endfor %}
   {% if reward.expires_at and reward.status == 'AVAILABLE' %}<p class="reward-expiry">{% if reward.is_expired %}Valid until{% else %}Expires{% endif %} {{ reward.expires_at|club_time:"M j, Y" }}</p>{% endif %}
-  {% if reward.status == 'REDEEMED' %}<p>Redeemed {{ reward.redemption.redeemed_at|club_time:"M j, Y · g:i A" }}{% if reward.redemption.openplay %} for OpenPlay at {{ reward.redemption.openplay.venue.name }}{% endif %}.</p>{% endif %}
+  {% if reward.status == 'REDEEMED' %}<p>Redeemed {{ reward.redemption.redeemed_at|club_time:"M j, Y · g:i A" }}{% if reward.redemption.openplay %} for {{ reward.redemption.openplay.display_name }}{% endif %}.</p>{% endif %}
   {% if reward.status == 'REVOKED' %}<p>This reward is currently unavailable.</p>{% endif %}
   {% if reward.open_request %}<p class="reward-request">Requested for {{ reward.open_request.openplay.starts_at|club_time:"M j · g:i A" }} at {{ reward.open_request.openplay.venue.name }}. Waiting for an admin to confirm.</p>
     <form method="post" action="{% url 'player:reward_request_cancel' reward.open_request.pk %}">{% csrf_token %}<button class="button secondary" type="submit">Cancel request</button></form>

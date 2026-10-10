@@ -57,9 +57,9 @@ New players must sign up before attendance submission. Public guest submission a
 - Never print or commit secrets.
 - Treat documentation claims as unverified until you run the check.
 
-## Status (as of 2026-10-04)
+## Status (as of 2026-10-10)
 
-Run `git log origin/main..HEAD` to see unpushed work; push only when the owner authorizes it. The Render staging gate is parked pending the staging URL, the deploy logs, and the environment-variable checklist (names only); no staging evidence exists yet. The loyalty-configuration editor is the only remaining service-only V1 gap. Local development continues first.
+Staging runs on Render (Singapore) from `release/staging-ci-2026-10-04`; PR #1 is a draft with passing CI. Off-site backups are verified on staging (Render cron to Cloudflare R2, Better Stack heartbeat, restore drill). Production does not exist yet. The authoritative checklist is `docs/LAUNCH_READINESS.md`; do not duplicate its state here. Run `git log origin/main..HEAD` for unpushed work; push only when the owner authorizes it. If the local Python is 3.14.0 rather than the pinned 3.14.7, use `uv run --python 3.14 ...` for local runs only; never edit `.python-version` for that.
 
 ## Known V1 gaps (service-only, no screen)
 

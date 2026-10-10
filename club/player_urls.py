@@ -13,5 +13,7 @@ urlpatterns = [
     path("attendance/", views.attendance, name="attendance"),
     path("attendance/submit/", views.submit_attendance, name="attendance_submit"),
     path("rewards/", views.rewards, name="rewards"),
+    path("rewards/<int:issuance_id>/use/", views.reward_use, name="reward_use"),
+    path("rewards/requests/<int:request_id>/cancel/", views.reward_request_cancel, name="reward_request_cancel"),
     path("profile/", views.profile, name="profile"),
 ]

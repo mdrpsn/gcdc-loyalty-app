@@ -5,14 +5,19 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .calendar_grid import local_date, month_bounds, month_context, parse_month
-from .loyalty import get_loyalty_summary, get_upcoming_milestones
-from .models import Attendance, AttendanceSubmission, OpenPlay, Registration, RewardIssuance
-from .player_forms import AttendanceSubmissionForm, PlayerProfileForm
+from .loyalty import (
+    cancel_redemption_request, get_loyalty_summary, get_upcoming_milestones, is_session_bound,
+    request_reward_redemption,
+)
+from .models import (
+    Attendance, AttendanceSubmission, OpenPlay, Registration, RewardIssuance, RewardRedemptionRequest,
+)
+from .player_forms import AttendanceSubmissionForm, PlayerProfileForm, RewardUseForm
 from .progression import get_badges, get_reward_progress, get_streaks
 from .services import (
     cancel_registration, counted_openplay_starts, create_linked_player, openplays_attended, register_player,
@@ -161,6 +166,43 @@ def submit_attendance(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
+def reward_use(request, issuance_id):
+    player = _required_player(request)
+    if player is None:
+        return redirect("player:profile")
+    issuance = get_object_or_404(RewardIssuance, pk=issuance_id, player=player)
+    form = RewardUseForm(request.POST if request.method == "POST" else None, issuance=issuance)
+    if request.method == "POST" and form.is_valid():
+        try:
+            request_reward_redemption(
+                issuance_id=issuance.pk, openplay_id=form.cleaned_data["openplay"].pk, actor=request.user,
+            )
+        except ValidationError as error:
+            form.add_error(None, "; ".join(error.messages))
+        else:
+            messages.success(request, "Reward requested. An admin will confirm it for that OpenPlay.")
+            return redirect("player:rewards")
+    return render(request, "player/reward_use.html", {"form": form, "issuance": issuance})
+
+
+@login_required
+@require_POST
+def reward_request_cancel(request, request_id):
+    player = _required_player(request)
+    if player is None:
+        return redirect("player:profile")
+    reward_request = get_object_or_404(RewardRedemptionRequest, pk=request_id, player=player)
+    try:
+        cancel_redemption_request(request_id=reward_request.pk, actor=request.user)
+    except ValidationError as error:
+        messages.error(request, "; ".join(error.messages))
+    else:
+        messages.success(request, "Reward request cancelled. The reward is available again.")
+    return redirect("player:rewards")
+
+
+@login_required
 @require_GET
 def rewards(request):
     player = _required_player(request)
@@ -170,6 +212,17 @@ def rewards(request):
         "redemption", "redemption__openplay", "redemption__openplay__venue",
     ).order_by("-earned_at", "-pk"))
     now = timezone.now()
+    open_requests = {
+        item.issuance_id: item for item in RewardRedemptionRequest.objects.filter(
+            player=player, status=RewardRedemptionRequest.Status.PENDING,
+        ).select_related("openplay", "openplay__venue")
+    }
+    for reward in issuances:
+        reward.open_request = open_requests.get(reward.pk)
+        reward.can_request = (
+            reward.status == RewardIssuance.Status.AVAILABLE and not reward.is_expired(now)
+            and is_session_bound(reward) and reward.open_request is None
+        )
     return render(request, "player/rewards.html", {
         "available": [r for r in issuances if r.status == RewardIssuance.Status.AVAILABLE and not r.is_expired(now)],
         "expired": [r for r in issuances if r.is_expired(now)],

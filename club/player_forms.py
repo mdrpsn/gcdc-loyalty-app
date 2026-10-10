@@ -41,6 +41,24 @@ class OpenPlayChoiceField(forms.ModelChoiceField):
         return f"{start:%b %d, %Y} · {openplay.period} · {start:%I:%M %p} · {openplay.venue.name}"
 
 
+class RewardUseForm(forms.Form):
+    """Pick the upcoming OpenPlay a discount or free OpenPlay reward is meant for."""
+
+    openplay = OpenPlayChoiceField(queryset=OpenPlay.objects.none(), label="Which OpenPlay will you use it for?",
+                                   empty_label="Choose the date, time of day, and venue")
+
+    def __init__(self, *args, issuance=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        from django.utils import timezone
+
+        sessions = OpenPlay.objects.filter(
+            status=OpenPlay.Status.SCHEDULED, starts_at__gt=timezone.now(),
+        )
+        if issuance is not None and issuance.expires_at is not None:
+            sessions = sessions.filter(starts_at__lte=issuance.expires_at)
+        self.fields["openplay"].queryset = sessions.select_related("venue").order_by("starts_at", "pk")
+
+
 class AttendanceSubmissionForm(forms.Form):
     openplay = OpenPlayChoiceField(queryset=OpenPlay.objects.none(), label="Date played / OpenPlay",
                                    empty_label="Choose the date, time of day, and venue")

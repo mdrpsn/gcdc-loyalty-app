@@ -1,0 +1,37 @@
+{% extends "organizer/base.html" %}
+{% block title %}Reward requests · Got Cha Dink Club{% endblock %}
+{% block organizer_content %}
+<div class="page-heading"><p class="eyebrow">Admin review</p><h1>Reward requests</h1><p>Players ask to use a discount or free OpenPlay at a named OpenPlay. Confirm payment first (GCash or cash); approving redeems the reward for that session.</p></div>
+<nav class="button-row" aria-label="Request status">
+  <a class="button secondary" href="?status=all"{% if selected == 'all' %} aria-current="page"{% endif %}>All ({{ counts.all }})</a>
+  <a class="button secondary" href="?status=pending"{% if selected == 'pending' %} aria-current="page"{% endif %}>Requested ({{ counts.pending }})</a>
+  <a class="button secondary" href="?status=redeemed"{% if selected == 'redeemed' %} aria-current="page"{% endif %}>Redeemed ({{ counts.redeemed }})</a>
+  <a class="button secondary" href="?status=declined"{% if selected == 'declined' %} aria-current="page"{% endif %}>Declined ({{ counts.declined }})</a>
+  <a class="button secondary" href="?status=closed"{% if selected == 'closed' %} aria-current="page"{% endif %}>Cancelled or released ({{ counts.closed }})</a>
+</nav>
+<div class="session-list">
+{% for item in page %}
+  <article class="card approval-card">
+    <div class="page-heading"><div><span class="pill">{{ item.get_status_display }}</span><h2>{{ item.player.display_name }}</h2><p>{{ item.player.user.email }}{% if item.player.phone %} · {{ item.player.phone }}{% endif %}</p></div></div>
+    <dl class="approval-facts">
+      <div><dt>Reward</dt><dd>{{ item.issuance.terms_snapshot.name }}{% for benefit in item.issuance.terms_snapshot.benefits %} · {{ benefit.description }}{% endfor %}</dd></div>
+      <div><dt>Collect</dt><dd>{% for benefit in item.issuance.terms_snapshot.benefits %}{% if benefit.kind == 'DISCOUNT' %}The regular fee less ₱{{ benefit.amount_php }}{% elif benefit.kind == 'FREE_OPENPLAY' %}Nothing: free OpenPlay{% endif %}{% endfor %}</dd></div>
+      <div><dt>For OpenPlay</dt><dd>{{ item.openplay.starts_at|club_time:"M j, Y · g:i A" }} · {{ item.openplay.venue.name }}</dd></div>
+      <div><dt>Requested</dt><dd>{{ item.requested_at|club_time:"M j, Y · g:i A" }}</dd></div>
+      {% if item.reviewed_at %}<div><dt>Reviewed</dt><dd>{{ item.reviewed_at|club_time:"M j, Y · g:i A" }} by {{ item.reviewed_by.email }}</dd></div>{% endif %}
+    </dl>
+    {% if item.decline_reason %}<p class="notice warning">Decline reason: {{ item.decline_reason }}</p>{% endif %}
+    {% if item.status == 'PENDING' %}
+      {% if item.reward_expired %}<p class="notice warning">This reward has expired, so approving will be refused. Use the reward's admin override on the player page, or decline.</p>{% endif %}
+      {% if item.session_ended %}<p class="notice warning">That OpenPlay has already ended or was cancelled. Approve only if the player attended and paid.</p>{% endif %}
+      <div class="approval-actions">
+        <form method="post" action="{% url 'organizer:reward_request_review' item.pk %}">{% csrf_token %}<input type="hidden" name="action" value="approve"><input type="hidden" name="status" value="{{ selected }}"><button class="button primary" type="submit">Approve and redeem</button></form>
+        <form method="post" action="{% url 'organizer:reward_request_review' item.pk %}" class="approval-decline">{% csrf_token %}<input type="hidden" name="action" value="decline"><input type="hidden" name="status" value="{{ selected }}"><label for="reason-{{ item.pk }}">Reason to decline</label><input id="reason-{{ item.pk }}" name="reason" maxlength="300"><button class="button secondary" type="submit">Decline</button></form>
+        <form method="post" action="{% url 'organizer:reward_request_review' item.pk %}">{% csrf_token %}<input type="hidden" name="action" value="release"><input type="hidden" name="status" value="{{ selected }}"><button class="button secondary" type="submit">Release</button></form>
+      </div>
+    {% endif %}
+  </article>
+{% empty %}<div class="card empty"><h2>No requests here</h2><p>Reward requests from players appear under the matching status.</p></div>{% endfor %}
+</div>
+{% if page.has_other_pages %}<nav class="pagination" aria-label="Request pages">{% if page.has_previous %}<a href="?status={{ selected }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?status={{ selected }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+{% endblock %}

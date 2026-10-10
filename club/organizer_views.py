@@ -23,8 +23,14 @@ from .forms import (
     AuditFilterForm, CorrectionForm, ExtensionForm, IdentityLinkForm, IdentityLookupForm, OpenPlayForm, ReasonForm,
     RedemptionForm, VenueForm,
 )
-from .loyalty import extend_reward_expiry, get_loyalty_summary, redeem_reward
-from .models import Attendance, AttendanceSubmission, AuditEvent, OpenPlay, Player, Registration, RewardIssuance, Venue
+from .loyalty import (
+    cancel_redemption_request, extend_reward_expiry, get_loyalty_summary, is_session_bound, redeem_reward,
+    review_redemption_request,
+)
+from .models import (
+    Attendance, AttendanceSubmission, AuditEvent, OpenPlay, Player, Registration, RewardIssuance,
+    RewardRedemptionRequest, Venue,
+)
 from .services import (
     add_historical_attendance,
     cancel_openplay,
@@ -306,19 +312,20 @@ def player_search(request):
 def player_detail(request, player_id):
     player = get_object_or_404(Player.objects.select_related("user"), pk=player_id)
     rewards = list(RewardIssuance.objects.filter(player=player).select_related("milestone")
-                   .order_by("milestone__threshold"))
+                   .order_by("milestone__threshold", "pk"))
+    open_requests = {
+        item.issuance_id: item for item in RewardRedemptionRequest.objects.filter(
+            player=player, status=RewardRedemptionRequest.Status.PENDING,
+        ).select_related("openplay", "openplay__venue")
+    }
+    for reward in rewards:
+        reward.open_request = open_requests.get(reward.pk)
     history = list(Attendance.objects.filter(player=player).select_related("openplay", "openplay__venue")
                    .order_by("-openplay__starts_at", "-pk")[:20])
     return render(request, "organizer/player.html", {
         "player": player, "summary": get_loyalty_summary(player), "rewards": rewards,
         "history": history, "is_admin": is_admin(request.user),
     })
-
-
-def _redeem_needs_openplay(issuance):
-    """Discounts and free OpenPlays apply to a session; gear and keepsakes do not."""
-    return any(benefit.get("kind") in {"DISCOUNT", "FREE_OPENPLAY"}
-               for benefit in issuance.terms_snapshot.get("benefits", []))
 
 
 @organizer_view
@@ -332,7 +339,7 @@ def redeem(request, player_id, issuance_id):
     can_override = expired and is_admin(request.user)
     form = RedemptionForm(
         request.POST if request.method == "POST" else None,
-        openplay_required=_redeem_needs_openplay(issuance), override_required=can_override,
+        openplay_required=is_session_bound(issuance), override_required=can_override,
     )
     error = None
     status = 200
@@ -360,6 +367,56 @@ def redeem(request, player_id, issuance_id):
         "player": player, "issuance": issuance, "form": form, "error": error,
         "expired": expired, "can_override": can_override,
     }, status=status)
+
+
+@admin_view
+@require_GET
+def reward_requests(request):
+    Status = RewardRedemptionRequest.Status
+    statuses = {"pending": [Status.PENDING], "redeemed": [Status.APPROVED], "declined": [Status.DECLINED],
+                "closed": [Status.CANCELLED, Status.RELEASED]}
+    selected = request.GET.get("status", "pending").lower()
+    if selected not in {"all", *statuses}:
+        selected = "pending"
+    rows = RewardRedemptionRequest.objects.select_related(
+        "player", "player__user", "openplay", "openplay__venue", "issuance", "reviewed_by",
+    ).order_by("-requested_at", "-pk")
+    if selected != "all":
+        rows = rows.filter(status__in=statuses[selected])
+    page = Paginator(rows, 50).get_page(request.GET.get("page"))
+    now = timezone.now()
+    for item in page:
+        item.session_ended = item.openplay.ends_at < now
+        item.reward_expired = item.issuance.is_expired(now)
+    counts = {"all": RewardRedemptionRequest.objects.count()}
+    counts.update({key: RewardRedemptionRequest.objects.filter(status__in=value).count()
+                   for key, value in statuses.items()})
+    return render(request, "organizer/reward_requests.html", {"page": page, "selected": selected, "counts": counts})
+
+
+@admin_view
+@require_POST
+def reward_request_review(request, request_id):
+    get_object_or_404(RewardRedemptionRequest, pk=request_id)
+    action = request.POST.get("action")
+    if action not in {"approve", "decline", "release"}:
+        return HttpResponseBadRequest("Choose approve, decline, or release.")
+    try:
+        if action == "release":
+            cancel_redemption_request(request_id=request_id, actor=request.user)
+        else:
+            review_redemption_request(
+                request_id=request_id, actor=request.user, approve=action == "approve",
+                reason=request.POST.get("reason", ""),
+            )
+    except ValidationError as error:
+        messages.error(request, _error_text(error))
+    else:
+        messages.success(request, {"approve": "Reward redeemed for that OpenPlay.",
+                                   "decline": "Reward request declined.",
+                                   "release": "Reward request released."}[action])
+    selected = request.POST.get("status", "pending")
+    return redirect(f"{reverse('organizer:reward_requests')}?{urlencode({'status': selected})}")
 
 
 @admin_view

@@ -412,6 +412,63 @@ class RewardIssuance(HistoricalModel):
         )
 
 
+class RewardRedemptionRequest(HistoricalModel):
+    """A player's request to use a session-bound reward at a named OpenPlay.
+
+    It never changes the reward's own status: "requested" means an open request exists, and the
+    reward is consumed only when staff redeem it (which approves the matching request).
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Requested"
+        APPROVED = "APPROVED", "Redeemed"
+        DECLINED = "DECLINED", "Declined"
+        CANCELLED = "CANCELLED", "Cancelled"
+        RELEASED = "RELEASED", "Released"
+
+    issuance = models.ForeignKey(RewardIssuance, on_delete=models.PROTECT, related_name="redemption_requests")
+    player = models.ForeignKey(Player, on_delete=models.PROTECT, related_name="reward_redemption_requests")
+    openplay = models.ForeignKey(OpenPlay, on_delete=models.PROTECT, related_name="reward_redemption_requests")
+    status = models.CharField(max_length=9, choices=Status.choices, default=Status.PENDING)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reward_redemption_requests"
+    )
+    requested_at = models.DateTimeField(default=timezone.now)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="reviewed_reward_redemption_requests",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    decline_reason = models.CharField(max_length=300, blank=True)
+    redemption = models.OneToOneField(
+        "RewardRedemption", on_delete=models.PROTECT, null=True, blank=True, related_name="request",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["issuance"], condition=Q(status="PENDING"), name="club_redemption_request_one_open_per_reward",
+            ),
+            models.UniqueConstraint(
+                fields=["player", "openplay"], condition=Q(status="PENDING"),
+                name="club_redemption_request_one_open_per_session",
+            ),
+            models.CheckConstraint(
+                condition=Q(status="PENDING", reviewed_by__isnull=True, reviewed_at__isnull=True,
+                            decline_reason="", redemption__isnull=True)
+                | Q(status="APPROVED", reviewed_by__isnull=False, reviewed_at__isnull=False,
+                    decline_reason="", redemption__isnull=False)
+                | (Q(status="DECLINED", reviewed_by__isnull=False, reviewed_at__isnull=False,
+                     redemption__isnull=True) & ~Q(decline_reason=""))
+                | Q(status__in=["CANCELLED", "RELEASED"], decline_reason="", redemption__isnull=True),
+                name="club_redemption_request_state_valid",
+            ),
+        ]
+        indexes = [models.Index(fields=["status", "requested_at"], name="club_redeem_request_queue_idx")]
+
+
 class RewardRedemption(HistoricalModel):
     issuance = models.OneToOneField(RewardIssuance, on_delete=models.PROTECT, related_name="redemption")
     player = models.ForeignKey(Player, on_delete=models.PROTECT, related_name="reward_redemptions")

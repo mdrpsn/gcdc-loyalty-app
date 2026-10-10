@@ -6,5 +6,8 @@
   {% if reward.expires_at and reward.status == 'AVAILABLE' %}<p class="reward-expiry">{% if reward.is_expired %}Expired{% else %}Expires{% endif %} {{ reward.expires_at|club_time:"M j, Y" }}</p>{% endif %}
   {% if reward.status == 'REDEEMED' %}<p>Redeemed {{ reward.redemption.redeemed_at|club_time:"M j, Y · g:i A" }}{% if reward.redemption.openplay %} for OpenPlay at {{ reward.redemption.openplay.venue.name }}{% endif %}.</p>{% endif %}
   {% if reward.status == 'REVOKED' %}<p>This reward is currently unavailable.</p>{% endif %}
+  {% if reward.open_request %}<p class="reward-request">Requested for {{ reward.open_request.openplay.starts_at|club_time:"M j · g:i A" }} at {{ reward.open_request.openplay.venue.name }}. Waiting for an admin to confirm.</p>
+    <form method="post" action="{% url 'player:reward_request_cancel' reward.open_request.pk %}">{% csrf_token %}<button class="button secondary" type="submit">Cancel request</button></form>
+  {% elif reward.can_request %}<a class="button primary" href="{% url 'player:reward_use' reward.pk %}">Use reward</a>{% endif %}
 </div></article>
 {% empty %}<p class="card empty-inline">None yet.</p>{% endfor %}

@@ -10,6 +10,8 @@ urlpatterns = [
     path("attendance-submissions/", views.attendance_submissions, name="attendance_submissions"),
     path("attendance-submissions/<int:submission_id>/review/", views.attendance_submission_review,
          name="attendance_submission_review"),
+    path("reward-requests/", views.reward_requests, name="reward_requests"),
+    path("reward-requests/<int:request_id>/review/", views.reward_request_review, name="reward_request_review"),
     path("openplays/<int:openplay_id>/", views.session_detail, name="session"),
     path("openplays/<int:openplay_id>/check-in/<int:player_id>/", views.check_in_player, name="check_in"),
     path("openplays/<int:openplay_id>/complete/", views.complete_session, name="complete"),

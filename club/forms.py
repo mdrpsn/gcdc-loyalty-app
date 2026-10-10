@@ -42,22 +42,6 @@ class OpenPlayForm(forms.Form):
         return data
 
 
-class WalkInForm(forms.Form):
-    display_name = forms.CharField(max_length=120, label="Player name")
-    phone = forms.CharField(max_length=40, required=False)
-    contact_email = forms.EmailField(required=False, label="Provisional contact email")
-    search_token = forms.CharField(widget=forms.HiddenInput)
-    confirm_distinct = forms.BooleanField(
-        required=False, label="I checked the matches; this is a different player"
-    )
-
-    def clean(self):
-        data = super().clean()
-        if not data.get("phone") and not data.get("contact_email"):
-            raise forms.ValidationError("Enter a phone number or contact email.")
-        return data
-
-
 class IdentityLookupForm(forms.Form):
     email = forms.EmailField(label="Account email")
 
@@ -92,13 +76,32 @@ class CorrectionForm(ReasonForm):
 
 class RedemptionForm(forms.Form):
     openplay = forms.ModelChoiceField(queryset=OpenPlay.objects.none(), label="Apply to OpenPlay")
+    expired_override_reason = forms.CharField(
+        max_length=300, required=False, label="Reason for the admin override",
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, openplay_required=True, override_required=False, **kwargs):
         super().__init__(*args, **kwargs)
         from django.utils import timezone
 
+        self.override_required = override_required
+        self.fields["openplay"].required = openplay_required
+        if not openplay_required:
+            self.fields["openplay"].label = "Apply to OpenPlay (optional)"
         self.fields["openplay"].queryset = (
             OpenPlay.objects.filter(status=OpenPlay.Status.SCHEDULED, ends_at__gte=timezone.now())
             .select_related("venue")
             .order_by("starts_at")
         )
+
+    def clean(self):
+        data = super().clean()
+        if self.override_required and not (data.get("expired_override_reason") or "").strip():
+            self.add_error("expired_override_reason", "Enter the reason for redeeming an expired reward.")
+        return data
+
+
+class ExtensionForm(forms.Form):
+    new_expires_at = _local_datetime_field("New expiry")
+    reason = forms.CharField(max_length=300, widget=forms.Textarea(attrs={"rows": 3}))

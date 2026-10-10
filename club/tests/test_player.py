@@ -147,7 +147,7 @@ class PlayerRequestTests(TestCase):
         pending.save()
         reconcile_player_loyalty(self.player, actor=self.staff)
         response = self.client.get(self.url("home"))
-        self.assertEqual(response.context["summary"].next_milestone.threshold, 20)
+        self.assertEqual(response.context["summary"].next_milestone.threshold, 25)
         self.assertContains(response, "Available reward")
         self.assertContains(response, "Dinker")
         self.assertNotContains(response, "Reward pending session completion")
@@ -178,31 +178,32 @@ class PlayerRequestTests(TestCase):
         self.attend(void, valid=False)
         self.attend(cancelled)
         response = self.client.get(self.url("attendance"))
-        self.assertContains(response, "Valid — counts")
+        self.assertContains(response, "Approved — counts")
         self.assertContains(response, "Void — does not count")
         self.assertContains(response, "Cancelled session — does not count")
         self.assertEqual(self.client.get(self.url("home")).context["summary"].openplays_attended, 1)
 
     def test_reward_status_and_historical_snapshot(self):
-        self.history(30)
+        self.history(75)
         reconcile_player_loyalty(self.player, actor=self.staff)
-        rewards = list(RewardIssuance.objects.filter(player=self.player).order_by("milestone__threshold"))
-        self.assertEqual(len(rewards), 3)
+        # 10: the ₱50 discount; 50: free OpenPlay; 75: free OpenPlay and overgrip (recognition has no row).
+        rewards = list(RewardIssuance.objects.filter(player=self.player).order_by("milestone__threshold", "pk"))
+        self.assertEqual(len(rewards), 4)
         RewardRedemption.objects.create(issuance=rewards[0], player=self.player, redeemed_by=self.staff, openplay=self.future)
         rewards[0].status = RewardIssuance.Status.REDEEMED
         rewards[0].save()
-        rewards[2].status = RewardIssuance.Status.REVOKED
-        rewards[2].revoked_at = self.now
-        rewards[2].revoked_reason = "Correction"
-        rewards[2].save()
-        rewards[1].milestone.benefits = [{"kind": "DISCOUNT", "description": "Changed later", "amount_php": 999}]
+        rewards[3].status = RewardIssuance.Status.REVOKED
+        rewards[3].revoked_at = self.now
+        rewards[3].revoked_reason = "Correction"
+        rewards[3].save()
+        rewards[1].milestone.benefits = [{"kind": "PERK", "description": "Changed later"}]
         rewards[1].milestone.save()
         with CaptureQueriesContext(connection) as captured:
             response = self.client.get(self.url("rewards"))
         self.assertContains(response, "Available")
         self.assertContains(response, "Redeemed")
         self.assertContains(response, "Revoked")
-        self.assertContains(response, "₱100 OFF one OpenPlay")
+        self.assertContains(response, "FREE one OpenPlay")
         self.assertNotContains(response, "Changed later")
         self.assertContains(response, "for OpenPlay at Court Green")
         self.assertLessEqual(len(captured), 8)
@@ -270,15 +271,35 @@ class PlayerRequestTests(TestCase):
         self.player.save()
         response = self.client.get(self.url("home"))
         self.assertRedirects(response, self.url("profile"))
-        response = self.client.post(self.url("profile"), {"display_name": "Fresh Profile", "phone": "333"}, follow=True)
+        response = self.client.post(self.url("profile"), {
+            "display_name": "Fresh Profile", "phone": "333", "reclub_name": "Fresh on ReClub",
+            "reclub_profile_url": "https://example.com/reclub/fresh",
+        }, follow=True)
         self.assertContains(response, "Profile saved")
         linked = Player.objects.get(user=self.user)
         self.assertNotEqual(linked.pk, walk_in.pk)
         self.assertEqual(linked.phone, "333")
-        self.client.post(self.url("profile"), {"display_name": "Updated Member", "phone": "444"})
+        self.client.post(self.url("profile"), {
+            "display_name": "Updated Member", "phone": "444", "reclub_name": "Fresh on ReClub",
+            "reclub_profile_url": "https://example.com/reclub/fresh",
+        })
         linked.refresh_from_db()
         self.assertEqual(linked.display_name, "Updated Member")
         self.assertEqual(linked.phone, "444")
         self.assertEqual(linked.contact_email, None)
         self.assertEqual(self.user.email, "member@example.com")
         self.assertTrue(AuditEvent.objects.filter(action="PLAYER_PROFILE_UPDATED", target_id=linked.pk).exists())
+
+    def test_profile_cannot_claim_another_players_reclub_link(self):
+        self.other.reclub_name = "Private on ReClub"
+        self.other.reclub_profile_url = "https://example.com/reclub/private"
+        self.other.save()
+
+        response = self.client.post(self.url("profile"), {
+            "display_name": "Member One", "phone": "111", "reclub_name": "Member on ReClub",
+            "reclub_profile_url": "https://example.com/reclub/PRIVATE",
+        })
+
+        self.assertContains(response, "This ReClub profile is already in club records")
+        self.player.refresh_from_db()
+        self.assertEqual(self.player.reclub_profile_url, "")

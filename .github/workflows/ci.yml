@@ -1,0 +1,76 @@
+name: CI release check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: gcdc_ci
+          POSTGRES_USER: gcdc_ci
+          POSTGRES_PASSWORD: ci_only_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gcdc_ci -d gcdc_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DJANGO_SECRET_KEY: ci-only-secret-key-never-use-in-production
+      DB_NAME: gcdc_ci
+      DB_USER: gcdc_ci
+      DB_PASSWORD: ci_only_password
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_SSLMODE: disable
+      DJANGO_TIME_ZONE: Asia/Manila
+      DJANGO_ALLOWED_HOSTS: testserver
+      DJANGO_CSRF_TRUSTED_ORIGINS: https://testserver
+      EMAIL_HOST: localhost
+      EMAIL_PORT: "587"
+      EMAIL_HOST_USER: ci_only
+      EMAIL_HOST_PASSWORD: ci_only_password
+      EMAIL_USE_TLS: "true"
+      EMAIL_USE_SSL: "false"
+      DEFAULT_FROM_EMAIL: ci@example.invalid
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up pinned Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.11.25"
+      - name: Verify lockfile and install dependencies
+        run: |
+          uv lock --check
+          uv sync --locked --no-dev
+      - name: Check application and migrations
+        run: |
+          uv run --locked --no-sync python manage.py check --settings=config.settings.production
+          uv run --locked --no-sync python manage.py makemigrations --check --dry-run --settings=config.settings.production
+          uv run --locked --no-sync python manage.py migrate --noinput --settings=config.settings.production
+          uv run --locked --no-sync python manage.py migrate --check --settings=config.settings.production
+      - name: Run full PostgreSQL test suite
+        run: uv run --locked --no-sync python manage.py test --settings=config.settings.test
+      - name: Collect production static files
+        run: uv run --locked --no-sync python manage.py collectstatic --noinput --settings=config.settings.production
+      - name: Run production-settings smoke tests
+        run: uv run --locked --no-sync python manage.py test config.test_production_smoke --settings=config.settings.production

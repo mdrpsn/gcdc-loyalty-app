@@ -1,14 +1,19 @@
 <article class="roster-row" aria-label="{{ row.player.display_name }}">
   <div class="roster-identity"><strong><a href="{% url 'organizer:player' row.player.pk %}">{{ row.player.display_name }}</a></strong>
     {% if row.attendance and row.attendance.status == 'VALID' %}
-      <span class="state checked">✓ Checked in <time datetime="{{ row.attendance.checked_in_at|date:'c' }}">{{ row.attendance.checked_in_at|club_time:"g:i A" }}</time></span>
+      <span class="state checked">✓ Approved attendance</span>
     {% elif row.attendance and row.attendance.status == 'VOID' %}
       <span class="state void">Void attendance · Admin review</span>
-    {% else %}<span class="state waiting">Not checked in</span>{% endif %}
+    {% elif row.submission and row.submission.status == 'PENDING' %}<span class="state waiting">Pending admin approval</span>
+    {% elif row.submission and row.submission.status == 'DECLINED' %}<span class="state void">Declined · may resubmit</span>
+    {% else %}<span class="state waiting">No attendance submitted</span>{% endif %}
   </div>
-  {% if openplay.status == 'SCHEDULED' and not row.attendance %}
+  {% if not row.player.user_id and not row.attendance %}<span class="state waiting">Account required before attendance submission</span>{% endif %}
+  {% if session_started %}
+  {% if row.player.user_id and openplay.status != 'CANCELLED' and not row.attendance and not row.submission or row.player.user_id and openplay.status != 'CANCELLED' and row.submission.status == 'DECLINED' %}
   <form method="post" action="{% url 'organizer:check_in' openplay.pk row.player.pk %}">
-    {% csrf_token %}<input type="hidden" name="q" value="{{ query }}"><button class="button primary" type="submit" aria-label="Check in {{ row.player.display_name }}">Check in</button>
+    {% csrf_token %}<input type="hidden" name="q" value="{{ query }}"><button class="button primary" type="submit" aria-label="Submit attendance for {{ row.player.display_name }}">Submit for approval</button>
   </form>
   {% endif %}
+  {% elif row.player.user_id and openplay.status != 'CANCELLED' and not row.attendance and not row.submission %}<span class="muted">Attendance opens when the OpenPlay starts</span>{% endif %}
 </article>

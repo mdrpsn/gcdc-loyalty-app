@@ -116,18 +116,18 @@ class UpcomingMilestoneTests(PlayerUiTestCase):
     def test_lists_unreached_active_milestones_nearest_first_with_progress(self):
         self.complete(4)
         upcoming = get_upcoming_milestones(self.player)
-        self.assertEqual([item.milestone.threshold for item in upcoming], [10, 20, 30, 50, 75, 100])
+        self.assertEqual([item.milestone.threshold for item in upcoming], [10, 25, 50, 75, 100])
         self.assertEqual((upcoming[0].remaining, upcoming[0].percent), (6, 40))
-        self.assertEqual(upcoming[1].remaining, 16)
+        self.assertEqual(upcoming[1].remaining, 21)
 
     def test_reached_inactive_and_already_held_milestones_are_not_upcoming(self):
         self.complete(12)
-        LoyaltyMilestone.objects.filter(threshold=20).update(is_active=False)
-        held = LoyaltyMilestone.objects.get(threshold=30)
+        LoyaltyMilestone.objects.filter(threshold=75).update(is_active=False)
+        held = LoyaltyMilestone.objects.get(threshold=50)
         RewardIssuance.objects.create(player=self.player, milestone=held, terms_snapshot={
-            "threshold": 30, "name": held.name, "benefits": held.benefits})
+            "threshold": 50, "name": held.name, "benefits": held.benefits})
         thresholds = [item.milestone.threshold for item in get_upcoming_milestones(self.player)]
-        self.assertEqual(thresholds, [50, 75, 100])  # 10 reached, 20 inactive, 30 already held
+        self.assertEqual(thresholds, [25, 100])  # 10 reached, 50 already held, 75 inactive
 
     def test_uses_completed_attendance_not_pending_check_ins(self):
         self.attend(self.player, self.session(self.now + timedelta(days=1)))  # checked in, not completed

@@ -7,7 +7,6 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.core import signing
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError
@@ -21,24 +20,29 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from accounts.permissions import is_admin, require_admin, require_organizer
 
 from .forms import (
-    AuditFilterForm, CorrectionForm, IdentityLinkForm, IdentityLookupForm, OpenPlayForm, ReasonForm,
-    RedemptionForm, VenueForm, WalkInForm,
+    AuditFilterForm, CorrectionForm, ExtensionForm, IdentityLinkForm, IdentityLookupForm, OpenPlayForm, ReasonForm,
+    RedemptionForm, VenueForm,
 )
-from .loyalty import get_loyalty_summary, redeem_reward
-from .models import Attendance, AuditEvent, OpenPlay, Player, Registration, RewardIssuance, Venue
+from .loyalty import (
+    cancel_redemption_request, extend_reward_expiry, get_loyalty_summary, is_session_bound, redeem_reward,
+    review_redemption_request,
+)
+from .models import (
+    Attendance, AttendanceSubmission, AuditEvent, OpenPlay, Player, Registration, RewardIssuance,
+    RewardRedemption, RewardRedemptionRequest, Venue,
+)
 from .services import (
     add_historical_attendance,
     cancel_openplay,
-    check_in,
-    check_in_walk_in,
     complete_openplay,
     create_openplay,
     create_venue,
     find_players,
-    find_walk_in_matches,
     link_player_account,
     openplays_attended,
+    review_attendance_submission,
     restore_attendance,
+    submit_staff_attendance,
     void_attendance,
 )
 
@@ -95,10 +99,84 @@ def home(request):
             starts_at__date__lte=today + timedelta(days=7),
             status=OpenPlay.Status.SCHEDULED,
         ).order_by("starts_at"),
+        "pending_attendance_count": AttendanceSubmission.objects.filter(
+            status=AttendanceSubmission.Status.PENDING,
+        ).count() if is_admin(request.user) else None,
     })
 
 
-def _session_context(request, openplay, query, walk_in_form=None, matches=None):
+@admin_view
+@require_GET
+def attendance_submissions(request):
+    statuses = {"pending": AttendanceSubmission.Status.PENDING,
+                "approved": AttendanceSubmission.Status.APPROVED,
+                "declined": AttendanceSubmission.Status.DECLINED}
+    selected = request.GET.get("status", "pending").lower()
+    if selected not in {"all", *statuses}:
+        selected = "pending"
+    rows = AttendanceSubmission.objects.select_related(
+        "player", "player__user", "openplay", "openplay__venue", "reviewed_by",
+    ).order_by("-submitted_at", "-pk")
+    if selected != "all":
+        rows = rows.filter(status=statuses[selected])
+    page = Paginator(rows, 50).get_page(request.GET.get("page"))
+    counts = {"all": AttendanceSubmission.objects.count()}
+    counts.update({key: AttendanceSubmission.objects.filter(status=value).count()
+                   for key, value in statuses.items()})
+    return render(request, "organizer/attendance_submissions.html", {
+        "page": page, "selected": selected, "counts": counts,
+    })
+
+
+@admin_view
+@require_POST
+def attendance_submission_review(request, submission_id):
+    get_object_or_404(AttendanceSubmission, pk=submission_id)
+    action = request.POST.get("action")
+    if action not in {"approve", "decline"}:
+        return HttpResponseBadRequest("Choose approve or decline.")
+    try:
+        review_attendance_submission(
+            submission_id=submission_id, actor=request.user,
+            approve=action == "approve", reason=request.POST.get("reason", ""),
+        )
+    except ValidationError as error:
+        messages.error(request, _error_text(error))
+    else:
+        messages.success(request, "Attendance approved." if action == "approve" else "Attendance declined.")
+    selected = request.POST.get("status", "pending")
+    return redirect(f"{reverse('organizer:attendance_submissions')}?{urlencode({'status': selected})}")
+
+
+def _collect_text(snapshot):
+    for benefit in snapshot.get("benefits", []):
+        if benefit.get("kind") == "DISCOUNT":
+            return f"Collect the regular fee less ₱{benefit['amount_php']}"
+        if benefit.get("kind") == "FREE_OPENPLAY":
+            return "Collect nothing: free OpenPlay"
+    return ""
+
+
+def _session_reward_rows(openplay):
+    """Open or approved reward requests plus direct redemptions that name this OpenPlay."""
+    Status = RewardRedemptionRequest.Status
+    rows = []
+    for request in RewardRedemptionRequest.objects.filter(
+        openplay=openplay, status__in=[Status.PENDING, Status.APPROVED],
+    ).select_related("player", "issuance"):
+        rows.append({"player": request.player, "snapshot": request.issuance.terms_snapshot,
+                     "state": "Requested" if request.status == Status.PENDING else "Redeemed"})
+    for redemption in RewardRedemption.objects.filter(openplay=openplay, request__isnull=True).select_related(
+        "player", "issuance",
+    ):
+        rows.append({"player": redemption.player, "snapshot": redemption.issuance.terms_snapshot,
+                     "state": "Redeemed"})
+    for row in rows:
+        row["collect"] = _collect_text(row["snapshot"])
+    return sorted(rows, key=lambda row: (row["state"] != "Requested", row["player"].display_name.lower()))
+
+
+def _session_context(request, openplay, query):
     registrations = list(
         Registration.objects.filter(openplay=openplay, status=Registration.Status.ACTIVE)
         .select_related("player", "player__user")
@@ -108,34 +186,42 @@ def _session_context(request, openplay, query, walk_in_form=None, matches=None):
         Attendance.objects.filter(openplay=openplay).select_related("player", "player__user")
     )
     by_player = {attendance.player_id: attendance for attendance in attendances}
-    roster = [{"player": registration.player, "attendance": by_player.get(registration.player_id)}
+    submissions = list(AttendanceSubmission.objects.filter(openplay=openplay).select_related("player"))
+    by_submission = {submission.player_id: submission for submission in submissions}
+    roster = [{"player": registration.player, "attendance": by_player.get(registration.player_id),
+               "submission": by_submission.get(registration.player_id)}
               for registration in registrations]
     registered_ids = {registration.player_id for registration in registrations}
-    walk_ins = [attendance for attendance in attendances
-                if attendance.player_id not in registered_ids and attendance.status == Attendance.Status.VALID]
+    outside_roster_attendances = [attendance for attendance in attendances
+                                  if attendance.player_id not in registered_ids
+                                  and attendance.status == Attendance.Status.VALID]
+    outside_roster_submissions = [submission for submission in submissions
+                                  if submission.player_id not in registered_ids
+                                  and submission.status == AttendanceSubmission.Status.PENDING]
+    reward_rows = _session_reward_rows(openplay)
     checked_in = sum(attendance.status == Attendance.Status.VALID for attendance in attendances)
+    pending_count = sum(submission.status == AttendanceSubmission.Status.PENDING for submission in submissions)
     unchecked = sum(row["attendance"] is None or row["attendance"].status != Attendance.Status.VALID
                     for row in roster)
     query = query.strip()[:100]
     search_results = list(
         find_players(term=query, actor=request.user).select_related("user").order_by("display_name", "pk")[:20]
     ) if len(query) >= 2 else []
-    if matches is not None:
-        search_results = matches
-    token = signing.dumps({"openplay_id": openplay.pk, "query": query}, salt="club.walk-in") if len(query) >= 2 else ""
-    if walk_in_form is None and token:
-        walk_in_form = WalkInForm(initial={"search_token": token})
     return {
         "openplay": openplay,
         "roster": roster,
-        "walk_ins": walk_ins,
+        "outside_roster_attendances": outside_roster_attendances,
+        "outside_roster_submissions": outside_roster_submissions,
+        "reward_rows": reward_rows,
+        "session_started": timezone.now() >= openplay.starts_at,
         "registered_count": len(registrations),
         "checked_in_count": checked_in,
+        "pending_count": pending_count,
         "unchecked_count": unchecked,
         "query": query,
         "search_results": [{"player": player, "registered": player.pk in registered_ids,
-                            "attendance": by_player.get(player.pk)} for player in search_results],
-        "walk_in_form": walk_in_form,
+                            "attendance": by_player.get(player.pk),
+                            "submission": by_submission.get(player.pk)} for player in search_results],
         "can_complete": openplay.status == OpenPlay.Status.SCHEDULED and timezone.now() >= openplay.ends_at,
         "can_cancel": openplay.status == OpenPlay.Status.SCHEDULED or (
             openplay.status == OpenPlay.Status.COMPLETED and is_admin(request.user)
@@ -157,46 +243,12 @@ def check_in_player(request, openplay_id, player_id):
     get_object_or_404(OpenPlay, pk=openplay_id)
     get_object_or_404(Player, pk=player_id)
     try:
-        _, created = check_in(openplay_id=openplay_id, player_id=player_id, actor=request.user)
-        messages.success(request, "Check-in confirmed." if created else "Already checked in; no duplicate created.")
+        submission = submit_staff_attendance(openplay_id=openplay_id, player_id=player_id, actor=request.user)
+        messages.success(request, "Attendance submitted for admin approval." if submission.status == "PENDING"
+                         else "Attendance was already reviewed.")
     except ValidationError as error:
         messages.error(request, _error_text(error))
     return redirect(_session_url(openplay_id, request.POST.get("q", "")[:100]))
-
-
-@organizer_view
-@require_POST
-def walk_in(request, openplay_id):
-    openplay = get_object_or_404(OpenPlay.objects.select_related("venue"), pk=openplay_id)
-    form = WalkInForm(request.POST)
-    query = ""
-    try:
-        token_data = signing.loads(request.POST.get("search_token", ""), salt="club.walk-in", max_age=900)
-        if token_data.get("openplay_id") != openplay_id or len(token_data.get("query", "").strip()) < 2:
-            raise signing.BadSignature("Search does not match this OpenPlay")
-        query = token_data["query"]
-    except signing.BadSignature:
-        return HttpResponseBadRequest("Search for an existing player before creating a walk-in.")
-    if not form.is_valid():
-        return render(request, "organizer/session.html", _session_context(request, openplay, query, form), status=400)
-    data = form.cleaned_data
-    matches = list(find_walk_in_matches(
-        display_name=data["display_name"], phone=data["phone"],
-        contact_email=data["contact_email"], actor=request.user,
-    ))
-    if matches and not data["confirm_distinct"]:
-        form.add_error(None, "Matching players found. Select the existing Player, or confirm this is a different person.")
-        return render(request, "organizer/session.html", _session_context(request, openplay, query, form, matches), status=409)
-    try:
-        player, _ = check_in_walk_in(
-            openplay_id=openplay_id, display_name=data["display_name"], phone=data["phone"],
-            contact_email=data["contact_email"], actor=request.user,
-        )
-    except ValidationError as error:
-        form.add_error(None, _error_text(error))
-        return render(request, "organizer/session.html", _session_context(request, openplay, query, form), status=409)
-    messages.success(request, f"{player.display_name} created and checked in.")
-    return redirect(_session_url(openplay_id, player.display_name))
 
 
 @organizer_view
@@ -291,7 +343,14 @@ def player_search(request):
 def player_detail(request, player_id):
     player = get_object_or_404(Player.objects.select_related("user"), pk=player_id)
     rewards = list(RewardIssuance.objects.filter(player=player).select_related("milestone")
-                   .order_by("milestone__threshold"))
+                   .order_by("milestone__threshold", "pk"))
+    open_requests = {
+        item.issuance_id: item for item in RewardRedemptionRequest.objects.filter(
+            player=player, status=RewardRedemptionRequest.Status.PENDING,
+        ).select_related("openplay", "openplay__venue")
+    }
+    for reward in rewards:
+        reward.open_request = open_requests.get(reward.pk)
     history = list(Attendance.objects.filter(player=player).select_related("openplay", "openplay__venue")
                    .order_by("-openplay__starts_at", "-pk")[:20])
     return render(request, "organizer/player.html", {
@@ -307,15 +366,22 @@ def redeem(request, player_id, issuance_id):
     issuance = get_object_or_404(
         RewardIssuance.objects.select_related("milestone"), pk=issuance_id, player=player
     )
-    form = RedemptionForm(request.POST or None)
+    expired = issuance.is_expired()
+    can_override = expired and is_admin(request.user)
+    form = RedemptionForm(
+        request.POST if request.method == "POST" else None,
+        openplay_required=is_session_bound(issuance), override_required=can_override,
+    )
     error = None
     status = 200
     if request.method == "POST":
         if form.is_valid():
+            openplay = form.cleaned_data.get("openplay")
             try:
                 redeem_reward(
                     issuance_id=issuance_id, player_id=player_id, actor=request.user,
-                    openplay_id=form.cleaned_data["openplay"].pk,
+                    openplay_id=openplay.pk if openplay else None,
+                    expired_override_reason=form.cleaned_data.get("expired_override_reason") if can_override else None,
                 )
             except ValidationError as exception:
                 error = _error_text(exception)
@@ -329,6 +395,85 @@ def redeem(request, player_id, issuance_id):
         error = "Only an available reward can be redeemed."
         status = 409
     return render(request, "organizer/redeem.html", {
+        "player": player, "issuance": issuance, "form": form, "error": error,
+        "expired": expired, "can_override": can_override,
+    }, status=status)
+
+
+@admin_view
+@require_GET
+def reward_requests(request):
+    Status = RewardRedemptionRequest.Status
+    statuses = {"pending": [Status.PENDING], "redeemed": [Status.APPROVED], "declined": [Status.DECLINED],
+                "closed": [Status.CANCELLED, Status.RELEASED]}
+    selected = request.GET.get("status", "pending").lower()
+    if selected not in {"all", *statuses}:
+        selected = "pending"
+    rows = RewardRedemptionRequest.objects.select_related(
+        "player", "player__user", "openplay", "openplay__venue", "issuance", "reviewed_by",
+    ).order_by("-requested_at", "-pk")
+    if selected != "all":
+        rows = rows.filter(status__in=statuses[selected])
+    page = Paginator(rows, 50).get_page(request.GET.get("page"))
+    now = timezone.now()
+    for item in page:
+        item.session_ended = item.openplay.ends_at < now
+        item.reward_expired = item.issuance.is_expired(now)
+    counts = {"all": RewardRedemptionRequest.objects.count()}
+    counts.update({key: RewardRedemptionRequest.objects.filter(status__in=value).count()
+                   for key, value in statuses.items()})
+    return render(request, "organizer/reward_requests.html", {"page": page, "selected": selected, "counts": counts})
+
+
+@admin_view
+@require_POST
+def reward_request_review(request, request_id):
+    get_object_or_404(RewardRedemptionRequest, pk=request_id)
+    action = request.POST.get("action")
+    if action not in {"approve", "decline", "release"}:
+        return HttpResponseBadRequest("Choose approve, decline, or release.")
+    try:
+        if action == "release":
+            cancel_redemption_request(request_id=request_id, actor=request.user)
+        else:
+            review_redemption_request(
+                request_id=request_id, actor=request.user, approve=action == "approve",
+                reason=request.POST.get("reason", ""),
+            )
+    except ValidationError as error:
+        messages.error(request, _error_text(error))
+    else:
+        messages.success(request, {"approve": "Reward redeemed for that OpenPlay.",
+                                   "decline": "Reward request declined.",
+                                   "release": "Reward request released."}[action])
+    selected = request.POST.get("status", "pending")
+    return redirect(f"{reverse('organizer:reward_requests')}?{urlencode({'status': selected})}")
+
+
+@admin_view
+@require_http_methods(["GET", "POST"])
+def extend_expiry(request, player_id, issuance_id):
+    player = get_object_or_404(Player, pk=player_id)
+    issuance = get_object_or_404(RewardIssuance, pk=issuance_id, player=player)
+    form = ExtensionForm(request.POST or None)
+    error = None
+    status = 200
+    if request.method == "POST":
+        if form.is_valid():
+            try:
+                extend_reward_expiry(
+                    issuance_id=issuance_id, new_expires_at=form.cleaned_data["new_expires_at"],
+                    reason=form.cleaned_data["reason"], actor=request.user,
+                )
+            except ValidationError as exception:
+                error = _error_text(exception)
+                status = 409
+            else:
+                messages.success(request, "Reward expiry extended and recorded.")
+                return redirect("organizer:player", player_id=player_id)
+        else:
+            status = 400
+    return render(request, "organizer/extend_expiry.html", {
         "player": player, "issuance": issuance, "form": form, "error": error,
     }, status=status)
 

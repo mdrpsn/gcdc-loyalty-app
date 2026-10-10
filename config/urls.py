@@ -4,13 +4,16 @@ from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
 
 from .views import health
-from .auth_views import ClubLoginView, ClubPasswordResetConfirmView
+from .auth_views import ClubLoginView, ClubPasswordResetConfirmView, signup, signup_done, signup_verify
 
 urlpatterns = [
     path("", RedirectView.as_view(pattern_name="player:home", permanent=False), name="home"),
     path("admin/", admin.site.urls),
     path("health/", health, name="health"),
     path("login/", ClubLoginView.as_view(), name="login"),
+    path("signup/", signup, name="signup"),
+    path("signup/check-email/", signup_done, name="signup_done"),
+    path("signup/verify/<str:token>/", signup_verify, name="signup_verify"),
     path("logout/", auth_views.LogoutView.as_view(next_page="login"), name="logout"),
     path("password-reset/", auth_views.PasswordResetView.as_view(
         template_name="registration/password_reset_form.html",

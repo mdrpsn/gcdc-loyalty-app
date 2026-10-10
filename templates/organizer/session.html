@@ -1,38 +1,29 @@
 {% extends "organizer/base.html" %}
+{% load club_roles %}
 {% block title %}{{ openplay }} · Roster{% endblock %}
 {% block organizer_content %}
 <a class="back-link" href="{% url 'organizer:home' %}">← Today's OpenPlays</a>
 <div class="page-heading"><p class="eyebrow">Session roster</p><h1>{{ openplay }}</h1><p>{{ openplay.venue.name }} · {{ openplay.starts_at|club_time:"D, M j · g:i A" }}–{{ openplay.ends_at|club_time:"g:i A" }}</p><span class="pill">{{ openplay.get_status_display }}</span></div>
-<section class="score-strip" aria-label="Roster counts"><div><strong>{{ checked_in_count }}</strong><span>Checked in</span></div><div><strong>{{ registered_count }}</strong><span>Registered</span></div><div><strong>{{ unchecked_count }}</strong><span>Registered, unchecked</span></div></section>
+<section class="score-strip" aria-label="Roster counts"><div><strong>{{ checked_in_count }}</strong><span>Approved attendance</span></div><div><strong>{{ registered_count }}</strong><span>Registered</span></div><div><strong>{{ unchecked_count }}</strong><span>Registered, awaiting approval</span></div></section>
+{% if pending_count %}<p class="notice warning">{{ pending_count }} attendance submission{{ pending_count|pluralize }} pending admin approval.{% if request.user|is_club_admin %} <a href="{% url 'organizer:attendance_submissions' %}">Review submissions</a>{% endif %}</p>{% endif %}
 <section class="card search-panel sticky-search" aria-labelledby="search-title"><h2 id="search-title">Find a player</h2>
   <form method="get" class="search-form"><label for="player-search">Name, phone, or email</label><div class="search-controls"><input id="player-search" name="q" type="search" value="{{ query }}" minlength="2" maxlength="100" autocomplete="off" placeholder="Search players" required><button class="button primary" type="submit">Search</button></div></form>
 </section>
-{% if query and not walk_in_form %}<p class="muted">Enter at least two characters.</p>{% endif %}
-{% if walk_in_form %}
-<section class="card search-panel" aria-label="Search results and walk-in creation">
-    <p>Check the club records before creating a walk-in.</p>
+{% if query and query|length < 2 %}<p class="muted">Enter at least two characters.</p>{% endif %}
+{% if query|length >= 2 %}
+<section class="card search-panel" aria-label="Player search results">
+    <p>New players must create an account at <strong>/signup/</strong> before submitting attendance. Existing walk-in records must be linked by an admin first.</p>
     <div class="search-results" aria-live="polite"><h3>Existing players</h3>
-      {% for result in search_results %}{% include "organizer/_player_result.html" %}{% empty %}<p class="muted">No matching Player found.</p>{% endfor %}
+      {% for result in search_results %}{% include "organizer/_player_result.html" %}{% empty %}<p class="muted">No matching player found. Ask the player to sign up first.</p>{% endfor %}
     </div>
-    {% if openplay.status == 'SCHEDULED' %}
-    <details class="walk-in-panel" {% if walk_in_form.errors %}open{% endif %}><summary>Create a new walk-in after checking the results</summary>
-      <form method="post" action="{% url 'organizer:walk_in' openplay.pk %}" class="stack">
-        {% csrf_token %}{{ walk_in_form.search_token }}
-        {% if walk_in_form.non_field_errors %}<div class="notice error" role="alert">{{ walk_in_form.non_field_errors }}</div>{% endif %}
-        <label for="id_display_name">Player name</label>{{ walk_in_form.display_name }}{{ walk_in_form.display_name.errors }}
-        <label for="id_phone">Phone (or use email)</label>{{ walk_in_form.phone }}{{ walk_in_form.phone.errors }}
-        <label for="id_contact_email">Provisional contact email (or use phone)</label>{{ walk_in_form.contact_email }}{{ walk_in_form.contact_email.errors }}
-        {% if walk_in_form.confirm_distinct.value %}<label class="check-label">{{ walk_in_form.confirm_distinct }} {{ walk_in_form.confirm_distinct.label }}</label>{% elif walk_in_form.non_field_errors %}<label class="check-label">{{ walk_in_form.confirm_distinct }} {{ walk_in_form.confirm_distinct.label }}</label>{% endif %}
-        <button class="button primary" type="submit">Create and check in</button>
-      </form>
-    </details>
-    {% endif %}
 </section>
 {% endif %}
 <section class="roster-section" aria-labelledby="roster-title"><div class="section-heading"><h2 id="roster-title">Registered roster</h2><span>{{ registered_count }} players</span></div>
-  <div class="card roster-list">{% for row in roster %}{% include "organizer/_roster_row.html" %}{% empty %}<p class="empty-inline">No active registrations. Use search to check in walk-ins.</p>{% endfor %}</div>
+  <div class="card roster-list">{% for row in roster %}{% include "organizer/_roster_row.html" %}{% empty %}<p class="empty-inline">No active registrations. Search for signed-up players, or ask a new player to sign up.</p>{% endfor %}</div>
 </section>
-{% if walk_ins %}<section class="roster-section"><div class="section-heading"><h2>Walk-ins checked in</h2><span>{{ walk_ins|length }}</span></div><div class="card roster-list">{% for attendance in walk_ins %}<article class="roster-row"><div class="roster-identity"><strong><a href="{% url 'organizer:player' attendance.player_id %}">{{ attendance.player.display_name }}</a></strong><span class="state checked">✓ Checked in {{ attendance.checked_in_at|club_time:"g:i A" }}</span></div></article>{% endfor %}</div></section>{% endif %}
+{% if outside_roster_attendances %}<section class="roster-section"><div class="section-heading"><h2>Approved attendance outside roster</h2><span>{{ outside_roster_attendances|length }}</span></div><div class="card roster-list">{% for attendance in outside_roster_attendances %}<article class="roster-row"><div class="roster-identity"><strong><a href="{% url 'organizer:player' attendance.player_id %}">{{ attendance.player.display_name }}</a></strong><span class="state checked">✓ Approved {{ attendance.checked_in_at|club_time:"g:i A" }}</span></div></article>{% endfor %}</div></section>{% endif %}
+{% if outside_roster_submissions %}<section class="roster-section"><div class="section-heading"><h2>Submissions outside roster</h2><span>{{ outside_roster_submissions|length }}</span></div><div class="card roster-list">{% for submission in outside_roster_submissions %}<article class="roster-row"><div class="roster-identity"><strong><a href="{% url 'organizer:player' submission.player_id %}">{{ submission.player.display_name }}</a></strong><span class="state waiting">Pending admin approval</span></div></article>{% endfor %}</div></section>{% endif %}
+{% if reward_rows %}<section class="roster-section" aria-labelledby="session-rewards-title"><div class="section-heading"><h2 id="session-rewards-title">Rewards for this OpenPlay</h2><span>{{ reward_rows|length }}</span></div><p class="muted">A reward does not register the player or count as attendance. The player still submits attendance after playing.</p><div class="card roster-list">{% for row in reward_rows %}<article class="roster-row"><div class="roster-identity"><strong>{{ row.player.display_name }}</strong><span class="muted">{{ row.snapshot.name }}{% for benefit in row.snapshot.benefits %} · {{ benefit.description }}{% endfor %}</span>{% if row.collect %}<span class="muted">{{ row.collect }}</span>{% endif %}<span class="state {% if row.state == 'Redeemed' %}checked{% else %}waiting{% endif %}">{{ row.state }}</span></div></article>{% endfor %}</div></section>{% endif %}
 <section class="session-actions"><h2>Session actions</h2>
   {% if openplay.status == 'SCHEDULED' %}
     {% if can_complete %}<a class="button primary" href="{% url 'organizer:complete' openplay.pk %}">Review and complete OpenPlay</a>

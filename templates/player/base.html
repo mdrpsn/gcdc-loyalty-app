@@ -4,7 +4,7 @@
 {% block body %}
 <header class="appbar">
   <div class="appbar-inner">
-    <a class="appbar-brand" href="{% url 'player:home' %}"><span class="brand-mark" aria-hidden="true">●</span> Got Cha Dink <strong>Club</strong></a>
+    <a class="appbar-brand" href="{% url 'player:home' %}"><img class="brand-logo" src="{% static 'club/img/gcdc-logo.jpg' %}" alt="" width="52" height="52"> Got Cha Dink <strong>Club</strong></a>
     <details class="user-menu">
       <summary aria-label="Account menu"><span class="avatar" aria-hidden="true">{{ request.user|avatar_initials }}</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
       <div class="menu">
@@ -23,7 +23,7 @@
   <a href="{% url 'player:profile' %}"{% if view == 'player:profile' %} aria-current="page"{% endif %}><span class="tab-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.500" r="3.500"/><path d="M5 20c.8-3.600 3.600-5.500 7-5.500s6.200 1.900 7 5.500"/></svg></span><span class="tab-label">Profile</span></a>
 </nav>
 {% endwith %}
-<main class="page-shell player-shell">
+<main id="main-content" class="page-shell player-shell" tabindex="-1">
   {% include "organizer/_messages.html" %}
   {% block player_content %}{% endblock %}
 </main>

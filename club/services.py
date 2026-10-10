@@ -4,13 +4,14 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.validators import URLValidator, validate_email
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
 from accounts.permissions import is_organizer, require_admin, require_organizer
 
-from .models import Attendance, AuditEvent, OpenPlay, Player, Registration, Venue
+from .models import Attendance, AttendanceSubmission, AuditEvent, OpenPlay, Player, Registration, Venue
 
 
 def _audit(action, target, actor, **details):
@@ -30,40 +31,53 @@ def _require_self_or_organizer(actor, player):
         raise PermissionDenied("This player record is not yours")
 
 
-def _create_walk_in(display_name, phone, contact_email, actor):
-    player = Player(display_name=display_name, phone=phone or "", contact_email=contact_email)
+def _create_walk_in(display_name, phone, contact_email, actor, reclub_name="", reclub_profile_url=""):
+    player = Player(
+        display_name=display_name, phone=phone or "", contact_email=contact_email,
+        reclub_name=reclub_name.strip(), reclub_profile_url=reclub_profile_url.strip(),
+    )
     player.save()
     _audit("PLAYER_CREATED", player, actor, kind="walk_in")
     return player
 
 
 @transaction.atomic
-def create_walk_in_player(*, display_name, phone="", contact_email=None, actor):
+def create_walk_in_player(*, display_name, phone="", contact_email=None, actor,
+                          reclub_name="", reclub_profile_url=""):
     require_organizer(actor)
-    return _create_walk_in(display_name, phone, contact_email, actor)
+    return _create_walk_in(display_name, phone, contact_email, actor, reclub_name, reclub_profile_url)
 
 
 @transaction.atomic
-def create_linked_player(*, user_id, display_name, actor, phone=""):
+def create_linked_player(*, user_id, display_name, actor, phone="", reclub_name="", reclub_profile_url=""):
     user = get_user_model().objects.select_for_update().get(pk=user_id)
     if not actor or not actor.is_authenticated or not actor.is_active:
         raise PermissionDenied("Authentication is required")
     if actor.pk != user.pk:
         require_admin(actor)
-    player = Player(user=user, display_name=display_name, phone=phone)
+    player = Player(
+        user=user, display_name=display_name, phone=phone,
+        reclub_name=reclub_name.strip(), reclub_profile_url=reclub_profile_url.strip(),
+    )
     player.save()
     _audit("PLAYER_CREATED", player, actor, kind="account_linked")
     return player
 
 
 @transaction.atomic
-def update_own_profile(*, player_id, display_name, phone, actor):
+def update_own_profile(*, player_id, display_name, phone, actor,
+                       reclub_name=None, reclub_profile_url=None):
     """Members may edit only non-identity profile fields on their linked Player."""
     player = Player.objects.select_for_update().get(pk=player_id, user=actor)
     if not actor.is_active:
         raise PermissionDenied("An active account is required")
     changed = []
-    for field, value in (("display_name", display_name), ("phone", phone)):
+    fields = [("display_name", display_name), ("phone", phone)]
+    if reclub_name is not None:
+        fields.append(("reclub_name", reclub_name.strip()))
+    if reclub_profile_url is not None:
+        fields.append(("reclub_profile_url", reclub_profile_url.strip()))
+    for field, value in fields:
         if getattr(player, field) != value:
             setattr(player, field, value)
             changed.append(field)
@@ -71,6 +85,39 @@ def update_own_profile(*, player_id, display_name, phone, actor):
         player.save(update_fields=[*changed, "updated_at"])
         _audit("PLAYER_PROFILE_UPDATED", player, actor, fields=changed)
     return player
+
+
+def _validate_claim_identity(*, full_name, email, phone, reclub_name, reclub_profile_url):
+    """Enforce required claim details even when a caller bypasses the HTML form."""
+    if not all((full_name.strip(), email.strip(), phone.strip(), reclub_name.strip(),
+                reclub_profile_url.strip())):
+        raise ValidationError("Enter all contact and ReClub details")
+    validate_email(email.strip())
+    URLValidator(schemes=["http", "https"])(reclub_profile_url.strip())
+
+
+@transaction.atomic
+def create_member_account(*, email, password, full_name, phone, reclub_name, reclub_profile_url):
+    """Create the login and its player profile together; never claim a walk-in implicitly."""
+    User = get_user_model()
+    _validate_claim_identity(
+        full_name=full_name, email=email, phone=phone,
+        reclub_name=reclub_name, reclub_profile_url=reclub_profile_url,
+    )
+    email = User.objects.normalize_login_email(email)
+    if Player.objects.filter(reclub_profile_url__iexact=reclub_profile_url.strip()).exclude(
+        reclub_profile_url=""
+    ).exists():
+        raise ValidationError("This ReClub profile is already in club records. Ask an admin to link your account.")
+    user = User.objects.create_user(email=email, password=password)
+    player = Player(
+        user=user, display_name=full_name.strip(), phone=phone.strip(),
+        reclub_name=reclub_name.strip(), reclub_profile_url=reclub_profile_url.strip(),
+    )
+    player.save()
+    _audit("MEMBER_SIGNED_UP", user, user)
+    _audit("PLAYER_CREATED", player, user, kind="account_linked")
+    return user
 
 
 @transaction.atomic
@@ -104,7 +151,7 @@ def find_players(*, term, actor):
     ).distinct()
 
 
-def find_walk_in_matches(*, display_name, phone, contact_email, actor):
+def find_walk_in_matches(*, display_name, phone, contact_email, actor, reclub_profile_url=""):
     """Exact candidate matches for the search-first UI; never claim an identity."""
     require_organizer(actor)
     criteria = Q(display_name__iexact=display_name.strip())
@@ -113,6 +160,8 @@ def find_walk_in_matches(*, display_name, phone, contact_email, actor):
     if contact_email and contact_email.strip():
         email = contact_email.strip()
         criteria |= Q(contact_email__iexact=email) | Q(user__email__iexact=email)
+    if reclub_profile_url and reclub_profile_url.strip():
+        criteria |= Q(reclub_profile_url__iexact=reclub_profile_url.strip())
     return Player.objects.filter(criteria).select_related("user").distinct().order_by("display_name", "pk")[:20]
 
 
@@ -274,6 +323,141 @@ def check_in_walk_in(*, openplay_id, display_name, actor, phone="", contact_emai
     player = _create_walk_in(display_name, phone, contact_email, actor)
     attendance, _ = _check_in_locked(openplay=openplay, player=player, actor=actor, now=now)
     return player, attendance
+
+
+@transaction.atomic
+def submit_member_attendance(*, openplay_id, actor, now=None):
+    """A member's claim is inert until an ADMIN approves it."""
+    if not actor or not actor.is_authenticated or not actor.is_active:
+        raise PermissionDenied("An active account is required")
+    openplay = OpenPlay.objects.select_for_update().get(pk=openplay_id)
+    player = Player.objects.select_for_update().get(user=actor)
+    now = now or timezone.now()
+    if openplay.status == OpenPlay.Status.CANCELLED or now < openplay.starts_at:
+        raise ValidationError("Choose an OpenPlay that has started and was not cancelled")
+    if not player.reclub_name or not player.reclub_profile_url:
+        raise ValidationError("Complete your ReClub details in your profile before submitting attendance")
+    return _submit_attendance_locked(
+        openplay=openplay, player=player, actor=actor, now=now,
+        full_name=player.display_name, email=actor.email, phone=player.phone,
+        reclub_name=player.reclub_name, reclub_profile_url=player.reclub_profile_url,
+    )
+
+
+@transaction.atomic
+def submit_staff_attendance(*, openplay_id, player_id, actor, now=None):
+    """Staff may help an existing player submit, but approval remains an ADMIN action."""
+    require_organizer(actor)
+    openplay = OpenPlay.objects.select_for_update().get(pk=openplay_id)
+    player = Player.objects.select_for_update().get(pk=player_id)
+    now = now or timezone.now()
+    if openplay.status == OpenPlay.Status.CANCELLED or now < openplay.starts_at:
+        raise ValidationError("Choose an OpenPlay that has started and was not cancelled")
+    if player.user_id is None:
+        raise ValidationError("This player must sign up and have a linked account before submitting attendance")
+    if not player.reclub_name or not player.reclub_profile_url:
+        raise ValidationError("This player needs ReClub details before attendance can be submitted")
+    return _submit_attendance_locked(
+        openplay=openplay, player=player, actor=actor, now=now,
+        full_name=player.display_name, email=player.user.email,
+        phone=player.phone, reclub_name=player.reclub_name,
+        reclub_profile_url=player.reclub_profile_url,
+    )
+
+
+def _submit_attendance_locked(*, openplay, player, actor, now, full_name, email, phone,
+                              reclub_name, reclub_profile_url):
+    if player.user_id is None:
+        raise ValidationError("A linked account is required before submitting attendance")
+    existing_attendance = Attendance.objects.filter(player=player, openplay=openplay).first()
+    if existing_attendance and existing_attendance.status == Attendance.Status.VOID:
+        raise ValidationError("A void attendance requires an ADMIN restoration")
+    if existing_attendance:
+        raise ValidationError("Attendance already exists for this OpenPlay")
+    submission, created = AttendanceSubmission.objects.select_for_update().get_or_create(
+        player=player, openplay=openplay,
+        defaults={
+            "claimed_full_name": full_name,
+            "claimed_email": email,
+            "claimed_phone": phone,
+            "reclub_name": reclub_name,
+            "reclub_profile_url": reclub_profile_url,
+            "submitted_by": actor,
+            "submitted_at": now,
+        },
+    )
+    if created:
+        _audit("ATTENDANCE_SUBMITTED", submission, actor, player_id=player.pk, openplay_id=openplay.pk)
+    elif submission.status == AttendanceSubmission.Status.DECLINED:
+        submission.status = AttendanceSubmission.Status.PENDING
+        submission.claimed_full_name = full_name
+        submission.claimed_email = email
+        submission.claimed_phone = phone
+        submission.reclub_name = reclub_name
+        submission.reclub_profile_url = reclub_profile_url
+        submission.submitted_by = actor
+        submission.submitted_at = now
+        submission.reviewed_by = None
+        submission.reviewed_at = None
+        submission.decline_reason = ""
+        submission.save(update_fields=[
+            "status", "claimed_full_name", "claimed_email", "claimed_phone", "reclub_name",
+            "reclub_profile_url", "submitted_by", "submitted_at",
+            "reviewed_by", "reviewed_at", "decline_reason", "updated_at",
+        ])
+        _audit("ATTENDANCE_RESUBMITTED", submission, actor, player_id=player.pk, openplay_id=openplay.pk)
+    return submission
+
+
+@transaction.atomic
+def review_attendance_submission(*, submission_id, actor, approve, reason="", now=None):
+    require_admin(actor)
+    openplay_id = AttendanceSubmission.objects.values_list("openplay_id", flat=True).get(pk=submission_id)
+    openplay = OpenPlay.objects.select_for_update().get(pk=openplay_id)
+    player_id = AttendanceSubmission.objects.values_list("player_id", flat=True).get(pk=submission_id)
+    player = Player.objects.select_for_update().get(pk=player_id)
+    submission = AttendanceSubmission.objects.select_for_update().get(pk=submission_id)
+    if submission.status != AttendanceSubmission.Status.PENDING:
+        raise ValidationError("Only a pending submission can be reviewed")
+    now = now or timezone.now()
+    if approve:
+        if player.user_id is None:
+            raise ValidationError("Link this player to a signed-up account before approving attendance")
+        if openplay.status == OpenPlay.Status.CANCELLED or now < openplay.starts_at:
+            raise ValidationError("This OpenPlay cannot receive approved attendance")
+        attendance, _ = Attendance.objects.get_or_create(
+            player=player, openplay=openplay,
+            defaults={
+                "source": Attendance.Source.CLAIM,
+                "checked_in_at": submission.submitted_at,
+                "recorded_by": actor,
+            },
+        )
+        if attendance.status == Attendance.Status.VOID:
+            raise ValidationError("Void attendance requires an ADMIN restoration")
+        submission.status = AttendanceSubmission.Status.APPROVED
+        submission.attendance = attendance
+        submission.reviewed_by = actor
+        submission.reviewed_at = now
+        submission.save(update_fields=["status", "attendance", "reviewed_by", "reviewed_at", "updated_at"])
+        _audit("ATTENDANCE_APPROVED", submission, actor, player_id=player.pk, openplay_id=openplay.pk,
+               attendance_id=attendance.pk)
+        if openplay.status == OpenPlay.Status.COMPLETED:
+            from .loyalty import reconcile_player_loyalty
+
+            reconcile_player_loyalty(player, actor=actor)
+    else:
+        reason = reason.strip()
+        if not reason:
+            raise ValidationError("Give a reason for declining attendance")
+        submission.status = AttendanceSubmission.Status.DECLINED
+        submission.reviewed_by = actor
+        submission.reviewed_at = now
+        submission.decline_reason = reason
+        submission.save(update_fields=["status", "reviewed_by", "reviewed_at", "decline_reason", "updated_at"])
+        _audit("ATTENDANCE_DECLINED", submission, actor, player_id=player.pk, openplay_id=openplay.pk,
+               reason=reason)
+    return submission
 
 
 @transaction.atomic

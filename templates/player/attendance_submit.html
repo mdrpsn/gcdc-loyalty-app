@@ -1,0 +1,15 @@
+{% extends "player/base.html" %}
+{% block title %}Submit attendance · Got Cha Dink Club{% endblock %}
+{% block player_content %}
+<a class="back-link" href="{% url 'player:attendance' %}">← Attendance history</a>
+<div class="page-heading"><p class="eyebrow">OpenPlay confirmation</p><h1>Submit attendance</h1><p>Choose the OpenPlay you attended. Each option includes the date, Morning/Afternoon/Evening period, time, and venue. An admin will review your submission before it counts.</p></div>
+<section class="card profile-card">
+  <p><strong>ReClub name</strong><br>{{ player.reclub_name|default:"Missing from profile" }}</p>
+  <p><strong>ReClub profile link</strong><br>{% if player.reclub_profile_url %}<a href="{{ player.reclub_profile_url }}" rel="noopener noreferrer" target="_blank">{{ player.reclub_profile_url }}</a>{% else %}Missing from profile{% endif %}</p>
+  <p class="muted">Your saved ReClub details are sent with the submission. <a href="{% url 'player:profile' %}">Edit your profile</a> if they have changed.</p>
+  <form method="post" class="stack">{% csrf_token %}{{ form.non_field_errors }}
+    <label for="{{ form.openplay.id_for_label }}">Date played / OpenPlay</label>{{ form.openplay }}{{ form.openplay.errors }}
+    <button class="button primary" type="submit">Submit for approval</button>
+  </form>
+</section>
+{% endblock %}

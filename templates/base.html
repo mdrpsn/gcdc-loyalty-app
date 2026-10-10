@@ -6,10 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0d1b36">
   <title>{% block title %}Got Cha Dink Club{% endblock %}</title>
+  <link rel="icon" type="image/jpeg" href="{% static 'club/img/gcdc-logo.jpg' %}">
   <link rel="stylesheet" href="{% static 'club/css/organizer.css' %}">
   {% block extra_css %}{% endblock %}
+  <link rel="stylesheet" href="{% static 'club/css/redesign.css' %}">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
   {% block body %}{% endblock %}
 </body>
 </html>

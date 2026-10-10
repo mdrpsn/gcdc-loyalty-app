@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Complete signup · Got Cha Dink Club{% endblock %}
+{% block body %}
+<main id="main-content" class="auth-shell auth-recovery" tabindex="-1">
+  <section class="card auth-card">
+    <p class="eyebrow">Got Cha Dink Club</p>
+    <h1>Complete your player profile</h1>
+    <p>Verified email: <strong>{{ email }}</strong>. Your OpenPlay attendance will be submitted for admin approval.</p>
+    <form method="post" class="stack">
+      {% csrf_token %}{{ form.non_field_errors }}
+      <label for="{{ form.full_name.id_for_label }}">Full name</label>{{ form.full_name }}{{ form.full_name.errors }}
+      <label for="{{ form.phone.id_for_label }}">Contact number</label>{{ form.phone }}{{ form.phone.errors }}
+      <label for="{{ form.reclub_name.id_for_label }}">ReClub name</label>{{ form.reclub_name }}{{ form.reclub_name.errors }}
+      <label for="{{ form.reclub_profile_url.id_for_label }}">ReClub profile link</label>{{ form.reclub_profile_url }}{{ form.reclub_profile_url.errors }}
+      <label for="{{ form.password1.id_for_label }}">Password</label>{{ form.password1 }}{{ form.password1.errors }}
+      <p class="field-hint">Use at least 6 letters and numbers, including a letter and a number. Symbols are allowed.</p>
+      <label for="{{ form.password2.id_for_label }}">Confirm password</label>{{ form.password2 }}{{ form.password2.errors }}
+      <button class="button primary" type="submit">Create account</button>
+    </form>
+    <p>Need a new link? <a href="{% url 'signup' %}">Start again</a>.</p>
+  </section>
+</main>
+{% endblock %}

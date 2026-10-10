@@ -27,17 +27,19 @@ Tests create `test_<DB_NAME>`, so the DB role needs CREATEDB. `config.settings.t
 ## Roles (enforced server-side; hiding UI is not authorization)
 
 - **PLAYER:** any active user; own dashboard, attendance, rewards, profile, own registration.
-- **ORGANIZER** (group): sessions, rosters, check-in, walk-ins, lookup, completion, cancellation, redemption, scheduling.
-- **ADMIN** (group or superuser): also attendance void/restore, exceptional cancellation of a completed session, identity linking, historical attendance addition to completed sessions, read-only audit review (`/organizer/audit/`). `is_staff` alone grants nothing.
+- **ORGANIZER** (group): sessions, rosters, staff-assisted submissions for linked players, lookup, completion, cancellation, redemption, scheduling.
+- **ADMIN** (group or superuser): also attendance submission approval/decline, attendance void/restore, exceptional cancellation of a completed session, identity linking, historical attendance addition to completed sessions, read-only audit review (`/organizer/audit/`). `is_staff` alone grants nothing.
 
 ## State machines
 
 - **OpenPlay:** SCHEDULED to COMPLETED (only after its scheduled end), SCHEDULED to CANCELLED (reason required), COMPLETED to CANCELLED (ADMIN only).
 - **Registration:** ACTIVE and CANCELLED are reversible only before start.
-- **Attendance:** VALID and VOID by ADMIN correction with a reason. Ordinary check-in never restores VOID. Check-in window: 30 minutes before start until end.
+- **AttendanceSubmission:** PENDING to APPROVED or DECLINED; DECLINED may be resubmitted as PENDING. Only ADMIN approval creates VALID Attendance. A session choice includes club-local date, derived Morning/Afternoon/Evening period, exact time, and venue.
+- **Attendance:** VALID and VOID by ADMIN correction with a reason. A VOID row requires explicit ADMIN restoration. Historical/direct service attendance paths are exceptional; player and staff UI submissions use the approval queue.
 - **Reward:** AVAILABLE to REDEEMED or REVOKED; REVOKED back to AVAILABLE if eligibility returns. REDEEMED is terminal and survives corrections (a discrepancy flag is set instead). Terms are snapshotted at issuance.
 
-Identity: authentication is `User.email`. Walk-ins are unlinked Players; signup never claims one. ADMIN links explicitly; there is no merge. Link before a member first saves a profile.
+Identity: authentication is `User.email`. Public signup first verifies email ownership through a 30-minute link, then requires full name, contact number, ReClub name and profile link, and a password. No User exists before verification and profile completion. Walk-ins are unlinked Players; signup never claims one. ADMIN links explicitly; there is no merge. A ReClub link already present in club records blocks public signup so the admin can verify and link the existing walk-in.
+New players must sign up before attendance submission. Public guest submission and staff creation of new walk-in submissions are unavailable. An old unlinked submission cannot be approved until ADMIN links its Player to an account.
 
 ## Conventions
 
@@ -55,9 +57,9 @@ Identity: authentication is `User.email`. Walk-ins are unlinked Players; signup 
 - Never print or commit secrets.
 - Treat documentation claims as unverified until you run the check.
 
-## Status (as of 2026-10-04)
+## Status (as of 2026-10-10)
 
-Run `git log origin/main..HEAD` to see unpushed work; push only when the owner authorizes it. The Render staging gate is parked pending the staging URL, the deploy logs, and the environment-variable checklist (names only); no staging evidence exists yet. The loyalty-configuration editor is the only remaining service-only V1 gap. Local development continues first.
+Staging runs on Render (Singapore) from `release/staging-ci-2026-10-04`; PR #1 is a draft with passing CI. Off-site backups are verified on staging (Render cron to Cloudflare R2, Better Stack heartbeat, restore drill). Production does not exist yet. The authoritative checklist is `docs/LAUNCH_READINESS.md`; do not duplicate its state here. Run `git log origin/main..HEAD` for unpushed work; push only when the owner authorizes it. If the local Python is 3.14.0 rather than the pinned 3.14.7, use `uv run --python 3.14 ...` for local runs only; never edit `.python-version` for that.
 
 ## Known V1 gaps (service-only, no screen)
 

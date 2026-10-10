@@ -1,0 +1,37 @@
+{% extends "organizer/base.html" %}
+{% block title %}Attendance approvals · Got Cha Dink Club{% endblock %}
+{% block organizer_content %}
+<div class="page-heading"><p class="eyebrow">Admin review</p><h1>Attendance approvals</h1><p>Only approved submissions create valid attendance and update loyalty progress.</p></div>
+<nav class="button-row" aria-label="Submission status">
+  <a class="button secondary" href="?status=all"{% if selected == 'all' %} aria-current="page"{% endif %}>All ({{ counts.all }})</a>
+  <a class="button secondary" href="?status=pending"{% if selected == 'pending' %} aria-current="page"{% endif %}>Pending approval ({{ counts.pending }})</a>
+  <a class="button secondary" href="?status=approved"{% if selected == 'approved' %} aria-current="page"{% endif %}>Approved ({{ counts.approved }})</a>
+  <a class="button secondary" href="?status=declined"{% if selected == 'declined' %} aria-current="page"{% endif %}>Declined ({{ counts.declined }})</a>
+</nav>
+<div class="session-list">
+{% for item in page %}
+  <article class="card approval-card">
+    <div class="page-heading"><div><span class="pill">{{ item.get_status_display }}</span><h2>{{ item.claimed_full_name|default:item.player.display_name }}</h2><p>{{ item.claimed_email|default:item.player.contact_email }}{% if item.claimed_phone %} · {{ item.claimed_phone }}{% endif %}</p></div></div>
+    <dl class="approval-facts">
+      <div><dt>Date played</dt><dd>{{ item.openplay.starts_at|club_time:"M j, Y · g:i A" }} · {{ item.openplay.period }}</dd></div>
+      <div><dt>Venue (Court)</dt><dd>{{ item.openplay.venue.name }}</dd></div>
+      <div><dt>ReClub name</dt><dd>{{ item.reclub_name }}</dd></div>
+      <div><dt>ReClub profile link</dt><dd><a href="{{ item.reclub_profile_url }}" target="_blank" rel="noopener noreferrer">{{ item.reclub_profile_url }}</a></dd></div>
+      <div><dt>Submitted</dt><dd>{{ item.submitted_at|club_time:"M j, Y · g:i A" }}</dd></div>
+      {% if not item.player.user_id %}<div><dt>Account</dt><dd>Unlinked record · link to a signed-up account before approval</dd></div>{% endif %}
+      {% if item.player.display_name != item.claimed_full_name or item.player.phone != item.claimed_phone %}<div><dt>Existing player record</dt><dd>{{ item.player.display_name }} · {{ item.player.phone }}</dd></div>{% endif %}
+      {% if item.reviewed_at %}<div><dt>Reviewed</dt><dd>{{ item.reviewed_at|club_time:"M j, Y · g:i A" }} by {{ item.reviewed_by.email }}</dd></div>{% endif %}
+    </dl>
+    {% if item.decline_reason %}<p class="notice warning">Decline reason: {{ item.decline_reason }}</p>{% endif %}
+    {% if item.status == 'PENDING' and not item.player.user_id %}<p class="notice warning">This player needs a linked account before attendance can be approved.</p>{% endif %}
+    {% if item.status == 'PENDING' and item.player.user_id %}
+      <div class="approval-actions">
+        <form method="post" action="{% url 'organizer:attendance_submission_review' item.pk %}">{% csrf_token %}<input type="hidden" name="action" value="approve"><input type="hidden" name="status" value="{{ selected }}"><button class="button primary" type="submit">Approve</button></form>
+        <form method="post" action="{% url 'organizer:attendance_submission_review' item.pk %}" class="approval-decline">{% csrf_token %}<input type="hidden" name="action" value="decline"><input type="hidden" name="status" value="{{ selected }}"><label for="reason-{{ item.pk }}">Reason to decline</label><input id="reason-{{ item.pk }}" name="reason" maxlength="300" required><button class="button secondary" type="submit">Decline</button></form>
+      </div>
+    {% endif %}
+  </article>
+{% empty %}<div class="card empty"><h2>No submissions here</h2><p>Submitted attendance will appear under the matching status.</p></div>{% endfor %}
+</div>
+{% if page.has_other_pages %}<nav class="pagination" aria-label="Submission pages">{% if page.has_previous %}<a href="?status={{ selected }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?status={{ selected }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+{% endblock %}

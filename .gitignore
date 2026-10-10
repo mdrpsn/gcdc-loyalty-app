@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 .venv/
+.playwright-cli/
 .local-emails/
 __pycache__/
 *.py[cod]
@@ -17,3 +18,5 @@ staticfiles/
 .vscode/
 .DS_Store
 Thumbs.db
+backups/
+*.dump.enc

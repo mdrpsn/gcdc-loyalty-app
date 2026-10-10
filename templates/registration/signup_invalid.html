@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Signup link expired · Got Cha Dink Club{% endblock %}
+{% block body %}
+<main id="main-content" class="auth-shell auth-recovery" tabindex="-1"><section class="card auth-card">
+  <p class="eyebrow">Got Cha Dink Club</p><h1>This link is invalid or expired</h1>
+  <p><a href="{% url 'signup' %}">Request a new verification link</a> to continue creating your account.</p>
+</section></main>
+{% endblock %}

@@ -5,18 +5,23 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .calendar_grid import local_date, month_bounds, month_context, parse_month
-from .loyalty import get_loyalty_summary, get_upcoming_milestones
-from .models import Attendance, OpenPlay, Registration, RewardIssuance
-from .player_forms import PlayerProfileForm
+from .loyalty import (
+    cancel_redemption_request, get_loyalty_summary, get_upcoming_milestones, is_session_bound,
+    request_reward_redemption,
+)
+from .models import (
+    Attendance, AttendanceSubmission, OpenPlay, Registration, RewardIssuance, RewardRedemptionRequest,
+)
+from .player_forms import AttendanceSubmissionForm, PlayerProfileForm, RewardUseForm
 from .progression import get_badges, get_reward_progress, get_streaks
 from .services import (
     cancel_registration, counted_openplay_starts, create_linked_player, openplays_attended, register_player,
-    update_own_profile,
+    submit_member_attendance, update_own_profile,
 )
 
 
@@ -39,9 +44,10 @@ def home(request):
         return redirect("player:profile")
     summary = get_loyalty_summary(player)
     streaks = get_streaks(player)
-    available = list(RewardIssuance.objects.filter(
+    now = timezone.now()
+    available = [reward for reward in RewardIssuance.objects.filter(
         player=player, status=RewardIssuance.Status.AVAILABLE,
-    ).order_by("earned_at", "pk"))
+    ).order_by("earned_at", "pk") if not reward.is_expired(now)]
     next_registration = Registration.objects.filter(
         player=player, status=Registration.Status.ACTIVE,
         openplay__status=OpenPlay.Status.SCHEDULED, openplay__ends_at__gte=timezone.now(),
@@ -134,7 +140,66 @@ def attendance(request):
     return render(request, "player/attendance.html", {
         "page": page, "attended_total": openplays_attended(player), "attended_in_month": len(month_starts),
         "calendar": month_context(first, {local_date(moment): "attended" for moment in month_starts}, timezone.localdate()),
+        "submissions": AttendanceSubmission.objects.filter(player=player).select_related(
+            "openplay", "openplay__venue",
+        ).order_by("-submitted_at", "-pk")[:25],
     })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def submit_attendance(request):
+    player = _required_player(request)
+    if player is None:
+        return redirect("player:profile")
+    form = AttendanceSubmissionForm(request.POST or None, initial={"openplay": request.GET.get("openplay")})
+    if request.method == "POST" and form.is_valid():
+        try:
+            submission = submit_member_attendance(openplay_id=form.cleaned_data["openplay"].pk, actor=request.user)
+        except ValidationError as error:
+            form.add_error(None, "; ".join(error.messages))
+        else:
+            messages.success(request, "Attendance submitted for approval." if submission.status == "PENDING"
+                             else "Attendance already approved.")
+            return redirect("player:attendance")
+    return render(request, "player/attendance_submit.html", {"form": form, "player": player})
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def reward_use(request, issuance_id):
+    player = _required_player(request)
+    if player is None:
+        return redirect("player:profile")
+    issuance = get_object_or_404(RewardIssuance, pk=issuance_id, player=player)
+    form = RewardUseForm(request.POST if request.method == "POST" else None, issuance=issuance)
+    if request.method == "POST" and form.is_valid():
+        try:
+            request_reward_redemption(
+                issuance_id=issuance.pk, openplay_id=form.cleaned_data["openplay"].pk, actor=request.user,
+            )
+        except ValidationError as error:
+            form.add_error(None, "; ".join(error.messages))
+        else:
+            messages.success(request, "Reward requested. An admin will confirm it for that OpenPlay.")
+            return redirect("player:rewards")
+    return render(request, "player/reward_use.html", {"form": form, "issuance": issuance})
+
+
+@login_required
+@require_POST
+def reward_request_cancel(request, request_id):
+    player = _required_player(request)
+    if player is None:
+        return redirect("player:profile")
+    reward_request = get_object_or_404(RewardRedemptionRequest, pk=request_id, player=player)
+    try:
+        cancel_redemption_request(request_id=reward_request.pk, actor=request.user)
+    except ValidationError as error:
+        messages.error(request, "; ".join(error.messages))
+    else:
+        messages.success(request, "Reward request cancelled. The reward is available again.")
+    return redirect("player:rewards")
 
 
 @login_required
@@ -146,8 +211,21 @@ def rewards(request):
     issuances = list(RewardIssuance.objects.filter(player=player).select_related(
         "redemption", "redemption__openplay", "redemption__openplay__venue",
     ).order_by("-earned_at", "-pk"))
+    now = timezone.now()
+    open_requests = {
+        item.issuance_id: item for item in RewardRedemptionRequest.objects.filter(
+            player=player, status=RewardRedemptionRequest.Status.PENDING,
+        ).select_related("openplay", "openplay__venue")
+    }
+    for reward in issuances:
+        reward.open_request = open_requests.get(reward.pk)
+        reward.can_request = (
+            reward.status == RewardIssuance.Status.AVAILABLE and not reward.is_expired(now)
+            and is_session_bound(reward) and reward.open_request is None
+        )
     return render(request, "player/rewards.html", {
-        "available": [r for r in issuances if r.status == RewardIssuance.Status.AVAILABLE],
+        "available": [r for r in issuances if r.status == RewardIssuance.Status.AVAILABLE and not r.is_expired(now)],
+        "expired": [r for r in issuances if r.is_expired(now)],
         "redeemed": [r for r in issuances if r.status == RewardIssuance.Status.REDEEMED],
         "revoked": [r for r in issuances if r.status == RewardIssuance.Status.REVOKED],
         "upcoming": get_upcoming_milestones(player),
@@ -165,11 +243,15 @@ def profile(request):
                 create_linked_player(
                     user_id=request.user.pk, display_name=form.cleaned_data["display_name"],
                     phone=form.cleaned_data["phone"], actor=request.user,
+                    reclub_name=form.cleaned_data["reclub_name"],
+                    reclub_profile_url=form.cleaned_data["reclub_profile_url"],
                 )
             else:
                 update_own_profile(
                     player_id=player.pk, display_name=form.cleaned_data["display_name"],
                     phone=form.cleaned_data["phone"], actor=request.user,
+                    reclub_name=form.cleaned_data["reclub_name"],
+                    reclub_profile_url=form.cleaned_data["reclub_profile_url"],
                 )
         except (ValidationError, IntegrityError) as error:
             form.add_error(None, "; ".join(error.messages) if isinstance(error, ValidationError) else "Profile could not be saved.")

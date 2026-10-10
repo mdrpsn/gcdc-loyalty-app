@@ -139,7 +139,12 @@ class OpenPlayNameTests(TestCase):
         openplay = self.make()
         self.client.force_login(self.organizer)
         page = self.client.get(reverse("organizer:session", args=[openplay.pk]))
-        self.assertContains(page, reverse("organizer:rename", args=[openplay.pk]))
+        self.assertContains(page, reverse("organizer:rename", args=[openplay.pk]), count=1)
+        html = page.content.decode()
+        link = html.index(reverse("organizer:rename", args=[openplay.pk]))
+        # Visible without scrolling: in the page heading, before the player search and the roster.
+        self.assertLess(link, html.index("Find a player"))
+        self.assertLess(link, html.index("Session actions"))
 
     # --- what players see
 

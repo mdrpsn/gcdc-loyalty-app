@@ -29,7 +29,7 @@ from .loyalty import (
 )
 from .models import (
     Attendance, AttendanceSubmission, AuditEvent, OpenPlay, Player, Registration, RewardIssuance,
-    RewardRedemptionRequest, Venue,
+    RewardRedemption, RewardRedemptionRequest, Venue,
 )
 from .services import (
     add_historical_attendance,
@@ -148,6 +148,34 @@ def attendance_submission_review(request, submission_id):
     return redirect(f"{reverse('organizer:attendance_submissions')}?{urlencode({'status': selected})}")
 
 
+def _collect_text(snapshot):
+    for benefit in snapshot.get("benefits", []):
+        if benefit.get("kind") == "DISCOUNT":
+            return f"Collect the regular fee less ₱{benefit['amount_php']}"
+        if benefit.get("kind") == "FREE_OPENPLAY":
+            return "Collect nothing: free OpenPlay"
+    return ""
+
+
+def _session_reward_rows(openplay):
+    """Open or approved reward requests plus direct redemptions that name this OpenPlay."""
+    Status = RewardRedemptionRequest.Status
+    rows = []
+    for request in RewardRedemptionRequest.objects.filter(
+        openplay=openplay, status__in=[Status.PENDING, Status.APPROVED],
+    ).select_related("player", "issuance"):
+        rows.append({"player": request.player, "snapshot": request.issuance.terms_snapshot,
+                     "state": "Requested" if request.status == Status.PENDING else "Redeemed"})
+    for redemption in RewardRedemption.objects.filter(openplay=openplay, request__isnull=True).select_related(
+        "player", "issuance",
+    ):
+        rows.append({"player": redemption.player, "snapshot": redemption.issuance.terms_snapshot,
+                     "state": "Redeemed"})
+    for row in rows:
+        row["collect"] = _collect_text(row["snapshot"])
+    return sorted(rows, key=lambda row: (row["state"] != "Requested", row["player"].display_name.lower()))
+
+
 def _session_context(request, openplay, query):
     registrations = list(
         Registration.objects.filter(openplay=openplay, status=Registration.Status.ACTIVE)
@@ -170,6 +198,7 @@ def _session_context(request, openplay, query):
     outside_roster_submissions = [submission for submission in submissions
                                   if submission.player_id not in registered_ids
                                   and submission.status == AttendanceSubmission.Status.PENDING]
+    reward_rows = _session_reward_rows(openplay)
     checked_in = sum(attendance.status == Attendance.Status.VALID for attendance in attendances)
     pending_count = sum(submission.status == AttendanceSubmission.Status.PENDING for submission in submissions)
     unchecked = sum(row["attendance"] is None or row["attendance"].status != Attendance.Status.VALID
@@ -183,6 +212,7 @@ def _session_context(request, openplay, query):
         "roster": roster,
         "outside_roster_attendances": outside_roster_attendances,
         "outside_roster_submissions": outside_roster_submissions,
+        "reward_rows": reward_rows,
         "registered_count": len(registrations),
         "checked_in_count": checked_in,
         "pending_count": pending_count,

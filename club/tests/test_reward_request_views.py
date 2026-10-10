@@ -161,6 +161,37 @@ class RewardRequestViewTests(TestCase):
         self.assertEqual(again.status, RewardRedemptionRequest.Status.RELEASED)
         self.assertEqual(self.client.post(review, {"action": "bogus"}).status_code, 400)
 
+    def test_session_page_lists_requested_and_redeemed_rewards_for_that_session_only(self):
+        session_url = reverse("organizer:session", args=[self.soon.pk])
+        other_url = reverse("organizer:session", args=[self.upcoming(4).pk])
+        self.client.force_login(self.organizer)
+        self.assertNotContains(self.client.get(session_url), "Rewards for this OpenPlay")
+        request = self.make_request()
+        page = self.client.get(session_url)
+        self.assertContains(page, "Rewards for this OpenPlay")
+        self.assertContains(page, "Collect the regular fee less ₱50")
+        self.assertContains(page, "Requested")
+        self.assertContains(page, "does not register the player")
+        self.assertEqual(self.client.get(session_url).context["registered_count"], 0)  # no auto-registration
+        self.assertNotContains(self.client.get(other_url), "Rewards for this OpenPlay")
+        self.client.force_login(self.admin)
+        self.client.post(reverse("organizer:reward_request_review", args=[request.pk]), {"action": "approve"})
+        self.assertContains(self.client.get(session_url), "Redeemed")
+        # a direct (cash at the court) redemption for the same session is listed once as well
+        free = RewardIssuance.objects.get(player=self.player, milestone__threshold=50, benefit_key="free-openplay")
+        from club.loyalty import redeem_reward
+        redeem_reward(issuance_id=free.pk, player_id=self.player.pk, actor=self.organizer, openplay_id=self.soon.pk)
+        page = self.client.get(session_url)
+        self.assertContains(page, "Collect nothing: free OpenPlay")
+        self.assertEqual(len(page.context["reward_rows"]), 2)
+
+    def test_cancelled_and_declined_requests_are_not_listed_on_the_session(self):
+        request = self.make_request()
+        self.client.force_login(self.admin)
+        self.client.post(reverse("organizer:reward_request_review", args=[request.pk]), {"action": "release"})
+        self.assertNotContains(self.client.get(reverse("organizer:session", args=[self.soon.pk])),
+                               "Rewards for this OpenPlay")
+
     def test_staff_see_an_open_request_on_the_players_record(self):
         self.make_request()
         self.client.force_login(self.organizer)

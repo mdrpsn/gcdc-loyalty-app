@@ -321,8 +321,11 @@ def venue_new(request):
         else:
             messages.success(request, f"Venue “{venue.name}” created. Schedule an OpenPlay there.")
             return redirect("organizer:openplay_new")
+    venues = Venue.objects.annotate(
+        session_count=Count("openplays", filter=~Q(openplays__status=OpenPlay.Status.CANCELLED)),
+    ).order_by("name", "pk")
     return render(request, "organizer/schedule_form.html", {
-        "form": form, "title": "Add a venue", "submit_label": "Create venue",
+        "form": form, "title": "Add a venue", "submit_label": "Create venue", "show_venues": True, "venues": venues,
     }, status=400 if request.method == "POST" else 200)
 
 

@@ -10,4 +10,11 @@
     <button class="button primary" type="submit">{{ submit_label }}</button>
   </form>
 </section>
+{% if show_venues %}
+<section class="card confirm-card"><h2>Venues</h2>
+  {% for venue in venues %}
+  <p><strong>{{ venue.name }}</strong>{% if not venue.is_active %} <span class="pill">Inactive</span>{% endif %}<br><span class="muted">{% if venue.session_count %}{{ venue.session_count }} OpenPlay{{ venue.session_count|pluralize }}{% else %}No OpenPlays yet{% endif %}</span></p>
+  {% empty %}<p class="muted">No venues yet. Add the first one above.</p>{% endfor %}
+</section>
+{% endif %}
 {% endblock %}

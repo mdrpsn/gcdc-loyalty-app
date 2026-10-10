@@ -4,7 +4,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.conf import settings
 from django.core import mail
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.test import override_settings
 from django.urls import reverse
 import re
@@ -33,7 +33,7 @@ class EmailFirstSignupTests(TestCase):
         self.assertEqual(self.client.get(reverse("player:attendance_submit")).status_code, 302)
         response = self.client.get(path)
         self.assertContains(response, "Verified email: <strong>new@example.com</strong>")
-        self.assertEqual(response["Referrer-Policy"], "no-referrer")
+        self.assertEqual(response["Referrer-Policy"], "same-origin")
         response = self.client.post(path, {
             "email": "forged@example.com", "full_name": "New Player", "phone": "09175550101",
             "reclub_name": "New on ReClub", "reclub_profile_url": "https://example.com/reclub/new",
@@ -44,6 +44,22 @@ class EmailFirstSignupTests(TestCase):
         self.assertFalse(User.objects.filter(email="forged@example.com").exists())
         self.client.logout()
         self.assertEqual(self.client.get(path).status_code, 400)
+
+    def test_profile_form_post_passes_csrf_with_the_origin_a_browser_sends(self):
+        path = self._request_link()
+        browser = Client(enforce_csrf_checks=True)
+        page = browser.get(path, secure=True)
+        # A document served with "no-referrer" makes browsers send "Origin: null" and no
+        # Referer on form POSTs, which Django's CSRF check rejects.
+        origin = "null" if page["Referrer-Policy"] == "no-referrer" else "https://testserver"
+        response = browser.post(path, {
+            "csrfmiddlewaretoken": browser.cookies["csrftoken"].value,
+            "full_name": "New Player", "phone": "09175550101",
+            "reclub_name": "New on ReClub", "reclub_profile_url": "https://example.com/reclub/new",
+            "password1": "StrongPass123!", "password2": "StrongPass123!",
+        }, secure=True, HTTP_ORIGIN=origin)
+        self.assertRedirects(response, reverse("player:home"), fetch_redirect_response=False)
+        self.assertTrue(User.objects.filter(email="new@example.com").exists())
 
     def test_signup_rejects_password_similar_to_verified_email(self):
         path = self._request_link()

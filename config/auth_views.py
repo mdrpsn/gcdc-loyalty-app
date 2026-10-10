@@ -66,7 +66,8 @@ def signup_verify(request, token):
         response = render(request, "registration/signup_profile.html", {
             "form": form, "email": challenge.email,
         })
-    response["Referrer-Policy"] = "no-referrer"
+    # "no-referrer" makes browsers send "Origin: null" on the form POST, which fails CSRF.
+    response["Referrer-Policy"] = "same-origin"
     return response
 
 

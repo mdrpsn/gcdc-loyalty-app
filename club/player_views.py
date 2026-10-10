@@ -39,9 +39,10 @@ def home(request):
         return redirect("player:profile")
     summary = get_loyalty_summary(player)
     streaks = get_streaks(player)
-    available = list(RewardIssuance.objects.filter(
+    now = timezone.now()
+    available = [reward for reward in RewardIssuance.objects.filter(
         player=player, status=RewardIssuance.Status.AVAILABLE,
-    ).order_by("earned_at", "pk"))
+    ).order_by("earned_at", "pk") if not reward.is_expired(now)]
     next_registration = Registration.objects.filter(
         player=player, status=Registration.Status.ACTIVE,
         openplay__status=OpenPlay.Status.SCHEDULED, openplay__ends_at__gte=timezone.now(),
@@ -168,8 +169,10 @@ def rewards(request):
     issuances = list(RewardIssuance.objects.filter(player=player).select_related(
         "redemption", "redemption__openplay", "redemption__openplay__venue",
     ).order_by("-earned_at", "-pk"))
+    now = timezone.now()
     return render(request, "player/rewards.html", {
-        "available": [r for r in issuances if r.status == RewardIssuance.Status.AVAILABLE],
+        "available": [r for r in issuances if r.status == RewardIssuance.Status.AVAILABLE and not r.is_expired(now)],
+        "expired": [r for r in issuances if r.is_expired(now)],
         "redeemed": [r for r in issuances if r.status == RewardIssuance.Status.REDEEMED],
         "revoked": [r for r in issuances if r.status == RewardIssuance.Status.REVOKED],
         "upcoming": get_upcoming_milestones(player),

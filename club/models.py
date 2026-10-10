@@ -1,7 +1,9 @@
+import re
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
 from django.db.models.functions import Lower
 from django.utils import timezone
 
@@ -313,6 +315,11 @@ class LoyaltyMilestone(HistoricalModel):
         PERK = "PERK", "Perk"
         PREMIUM_REWARD = "PREMIUM_REWARD", "Premium reward"
 
+    # RECOGNITION is status shown from the attendance count; the others become redeemable rewards.
+    REDEEMABLE_KINDS = frozenset({
+        RewardKind.DISCOUNT, RewardKind.FREE_OPENPLAY, RewardKind.PERK, RewardKind.PREMIUM_REWARD,
+    })
+
     threshold = models.PositiveIntegerField(unique=True)
     name = models.CharField(max_length=120)
     benefits = models.JSONField()
@@ -340,6 +347,14 @@ class LoyaltyMilestone(HistoricalModel):
                 amount = benefit.get("amount_php")
                 if type(amount) is not int or amount <= 0:
                     raise ValidationError({"benefits": "Discounts need a positive whole-peso amount"})
+            if "valid_days" in benefit:
+                days = benefit["valid_days"]
+                if benefit["kind"] not in self.REDEEMABLE_KINDS or type(days) is not int or days <= 0:
+                    raise ValidationError({"benefits": "valid_days must be a positive whole number on a redeemable benefit"})
+        keys = [benefit["key"] for benefit in self.benefits if "key" in benefit]
+        if any(not isinstance(key, str) or not re.fullmatch(r"[a-z0-9_-]{1,40}", key) for key in keys) \
+                or len(keys) != len(set(keys)):
+            raise ValidationError({"benefits": "Benefit keys must be unique lowercase slugs"})
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -357,9 +372,13 @@ class RewardIssuance(HistoricalModel):
 
     player = models.ForeignKey(Player, on_delete=models.PROTECT, related_name="reward_issuances")
     milestone = models.ForeignKey(LoyaltyMilestone, on_delete=models.PROTECT, related_name="issuances")
+    # One row per redeemable benefit. A blank key marks a legacy row that covers its whole milestone.
+    benefit_key = models.CharField(max_length=40, blank=True, default="")
     terms_snapshot = models.JSONField()
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.AVAILABLE)
     earned_at = models.DateTimeField(default=timezone.now)
+    # Null means no expiry. "Expired" is derived (AVAILABLE past this moment), never stored.
+    expires_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
     revoked_reason = models.CharField(max_length=300, blank=True)
     # A redeemed entitlement stays redeemed; this records a later eligibility discrepancy.
@@ -369,7 +388,13 @@ class RewardIssuance(HistoricalModel):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["player", "milestone"], name="club_reward_player_milestone_uniq"),
+            models.UniqueConstraint(
+                fields=["player", "milestone", "benefit_key"], name="club_reward_player_benefit_uniq"
+            ),
+            models.CheckConstraint(
+                condition=Q(expires_at__isnull=True) | Q(expires_at__gt=F("earned_at")),
+                name="club_reward_expiry_after_earned",
+            ),
             models.CheckConstraint(
                 condition=(Q(status="AVAILABLE", revoked_at__isnull=True, revoked_reason="", eligibility_discrepancy_at__isnull=True))
                 | (Q(status="REDEEMED", revoked_at__isnull=True, revoked_reason=""))
@@ -378,6 +403,13 @@ class RewardIssuance(HistoricalModel):
             ),
         ]
         indexes = [models.Index(fields=["player", "status"], name="club_reward_player_status_idx")]
+
+    def is_expired(self, now=None):
+        return (
+            self.status == self.Status.AVAILABLE
+            and self.expires_at is not None
+            and (now or timezone.now()) > self.expires_at
+        )
 
 
 class RewardRedemption(HistoricalModel):

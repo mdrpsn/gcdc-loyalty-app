@@ -83,9 +83,13 @@ class LoyaltyTests(TestCase):
             [("Rookie", 0), ("Regular", 5), ("Player", 10), ("Court Regular", 20), ("Legend", 30)],
         )
         self.assertEqual(
-            list(LoyaltyMilestone.objects.values_list("threshold", "name")),
-            [(10, "Dinker"), (20, "Dink Addict"), (30, "Court Regular"),
+            list(LoyaltyMilestone.objects.filter(is_active=True).values_list("threshold", "name")),
+            [(10, "Dinker"), (25, "Dink Addict"),
              (50, "Got Cha Loyalist"), (75, "Club Veteran"), (100, "Century Club")],
+        )
+        # The earlier 20 and 30 milestones are retired, never deleted.
+        self.assertEqual(
+            list(LoyaltyMilestone.objects.filter(is_active=False).values_list("threshold", flat=True)), [20, 30],
         )
         previous = 0
         for count, level in [(0, "Rookie"), (4, "Rookie"), (5, "Regular"),
@@ -101,25 +105,39 @@ class LoyaltyTests(TestCase):
     def test_seeded_milestones_have_all_agreed_benefits(self):
         terms = {
             milestone.threshold: milestone.benefits
-            for milestone in LoyaltyMilestone.objects.all()
+            for milestone in LoyaltyMilestone.objects.filter(is_active=True)
         }
         self.assertEqual(
             {threshold: [benefit["kind"] for benefit in benefits] for threshold, benefits in terms.items()},
             {
-                10: ["DISCOUNT"], 20: ["DISCOUNT"], 30: ["FREE_OPENPLAY"],
+                10: ["DISCOUNT", "RECOGNITION"],
+                25: ["RECOGNITION"],
                 50: ["FREE_OPENPLAY", "RECOGNITION"],
-                75: ["FREE_OPENPLAY", "PERK"],
-                100: ["RECOGNITION", "PREMIUM_REWARD"],
+                75: ["FREE_OPENPLAY", "PERK", "RECOGNITION"],
+                100: ["FREE_OPENPLAY", "PREMIUM_REWARD", "RECOGNITION"],
             },
         )
         self.assertEqual(terms[10][0]["amount_php"], 50)
-        self.assertEqual(terms[20][0]["amount_php"], 100)
         self.assertEqual(terms[10][0]["currency"], "PHP")
+        validity = {
+            (threshold, benefit["key"]): benefit["valid_days"]
+            for threshold, benefits in terms.items() for benefit in benefits if "valid_days" in benefit
+        }
+        self.assertEqual(validity, {
+            (10, "discount-50"): 30, (50, "free-openplay"): 30, (75, "free-openplay"): 30,
+            (75, "overgrip"): 60, (100, "free-openplay"): 30, (100, "century-shirt"): 60,
+        })
+        for benefits in terms.values():  # recognition is status and never expires or becomes a reward row
+            for benefit in benefits:
+                if benefit["kind"] == "RECOGNITION":
+                    self.assertNotIn("valid_days", benefit)
+                    self.assertNotIn("key", benefit)
 
     def test_all_milestone_crossings_issue_once_and_reconciliation_is_idempotent(self):
         previous = 0
-        for before, threshold in [(9, 10), (19, 20), (29, 30),
-                                  (49, 50), (74, 75), (99, 100)]:
+        # One reward row per redeemable benefit; the 25 milestone is recognition only (no row).
+        rows = {10: 1, 25: 0, 50: 1, 75: 2, 100: 2}
+        for before, threshold in [(9, 10), (24, 25), (49, 50), (74, 75), (99, 100)]:
             self.add_history(before - previous)
             reconcile_player_loyalty(self.player, actor=self.admin)
             self.assertFalse(RewardIssuance.objects.filter(player=self.player, milestone__threshold=threshold).exists())
@@ -128,7 +146,8 @@ class LoyaltyTests(TestCase):
             reconcile_player_loyalty(self.player, actor=self.admin)
             with self.subTest(threshold=threshold):
                 self.assertEqual(
-                    RewardIssuance.objects.filter(player=self.player, milestone__threshold=threshold).count(), 1
+                    RewardIssuance.objects.filter(player=self.player, milestone__threshold=threshold).count(),
+                    rows[threshold],
                 )
             previous = threshold
         self.assertEqual(RewardIssuance.objects.filter(player=self.player).count(), 6)
@@ -137,11 +156,11 @@ class LoyaltyTests(TestCase):
     def test_multiple_milestones_crossed_and_terms_snapshot(self):
         self.add_history(8)
         reconcile_player_loyalty(self.player)
-        self.add_history(14)
-        self.assertEqual(list(get_eligible_milestones(self.player).values_list("threshold", flat=True)), [10, 20])
+        self.add_history(18)
+        self.assertEqual(list(get_eligible_milestones(self.player).values_list("threshold", flat=True)), [10, 25])
         reconcile_player_loyalty(self.player, actor=self.admin)
         self.assertEqual(list(RewardIssuance.objects.filter(player=self.player).order_by("milestone__threshold")
-                              .values_list("milestone__threshold", flat=True)), [10, 20])
+                              .values_list("milestone__threshold", flat=True)), [10])
         issuance = RewardIssuance.objects.get(player=self.player, milestone__threshold=10)
         self.assertEqual(issuance.terms_snapshot["benefits"][0]["amount_php"], 50)
         milestone = issuance.milestone
@@ -166,7 +185,7 @@ class LoyaltyTests(TestCase):
         self.assertFalse(RewardIssuance.objects.filter(player=self.player).exists())
         complete_openplay(openplay_id=pending.pk, actor=self.organizer, now=pending.ends_at + timedelta(minutes=1))
         self.assertEqual(RewardIssuance.objects.filter(player=self.player).count(), 1)
-        self.assertEqual(get_loyalty_summary(self.player).remaining_openplays, 10)
+        self.assertEqual(get_loyalty_summary(self.player).remaining_openplays, 15)
 
     def test_cancelled_pending_session_never_issues_reward(self):
         self.add_history(9)
@@ -197,18 +216,18 @@ class LoyaltyTests(TestCase):
         self.assertFalse(RewardIssuance.objects.filter(player=self.player).exists())
 
     def test_correction_revoke_and_restore_original_issuance(self):
-        self.add_history(30)
+        self.add_history(50)
         reconcile_player_loyalty(self.player, actor=self.admin)
-        issuance = RewardIssuance.objects.get(player=self.player, milestone__threshold=30)
+        issuance = RewardIssuance.objects.get(player=self.player, milestone__threshold=50)
         attendance = Attendance.objects.filter(player=self.player).first()
         void_attendance(attendance_id=attendance.pk, actor=self.admin, reason="Wrong player")
         issuance.refresh_from_db()
-        self.assertEqual(get_openplays_attended(self.player), 29)
+        self.assertEqual(get_openplays_attended(self.player), 49)
         self.assertEqual(issuance.status, RewardIssuance.Status.REVOKED)
         restore_attendance(attendance_id=attendance.pk, actor=self.admin, reason="Verified")
         issuance.refresh_from_db()
         self.assertEqual(issuance.status, RewardIssuance.Status.AVAILABLE)
-        self.assertEqual(RewardIssuance.objects.filter(player=self.player, milestone__threshold=30).count(), 1)
+        self.assertEqual(RewardIssuance.objects.filter(player=self.player, milestone__threshold=50).count(), 1)
         self.assertEqual(AuditEvent.objects.filter(action="REWARD_REVOKED", target_id=issuance.pk).count(), 1)
         self.assertEqual(AuditEvent.objects.filter(action="REWARD_REINSTATED", target_id=issuance.pk).count(), 1)
 
@@ -232,9 +251,9 @@ class LoyaltyTests(TestCase):
         self.assertTrue(Attendance.objects.filter(player=self.player, openplay=session).exists())
 
     def test_redeemed_history_survives_correction_and_discrepancy_is_audited_once(self):
-        self.add_history(30)
+        self.add_history(50)
         reconcile_player_loyalty(self.player, actor=self.admin)
-        issuance = RewardIssuance.objects.get(player=self.player, milestone__threshold=30)
+        issuance = RewardIssuance.objects.get(player=self.player, milestone__threshold=50)
         redemption = redeem_reward(issuance_id=issuance.pk, player_id=self.player.pk, actor=self.organizer)
         attendance = Attendance.objects.filter(player=self.player).first()
         void_attendance(attendance_id=attendance.pk, actor=self.admin, reason="Mistake")
@@ -306,7 +325,8 @@ class LoyaltyTests(TestCase):
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
                 RewardIssuance.objects.create(
-                    player=self.player, milestone=issuance.milestone, terms_snapshot=issuance.terms_snapshot
+                    player=self.player, milestone=issuance.milestone, terms_snapshot=issuance.terms_snapshot,
+                    benefit_key=issuance.benefit_key,
                 )
         with self.assertRaises(ValidationError):
             issuance.delete()

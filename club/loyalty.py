@@ -2,12 +2,14 @@
 
 from dataclasses import dataclass
 from copy import deepcopy
+from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
-from accounts.permissions import require_organizer
+from accounts.permissions import require_admin, require_organizer
 
 from .models import (
     Attendance,
@@ -69,8 +71,11 @@ def get_loyalty_summary(player):
         current_level=get_loyalty_level(player),
         next_milestone=next_milestone,
         remaining_openplays=next_milestone.threshold - completed if next_milestone else None,
+        # Recognition-only milestones have no reward row, so earned status comes from the count.
         earned_milestones=tuple(
-            LoyaltyMilestone.objects.filter(issuances__player=player).order_by("threshold")
+            LoyaltyMilestone.objects.filter(
+                Q(issuances__player=player) | Q(is_active=True, threshold__lte=completed)
+            ).distinct().order_by("threshold")
         ),
     )
 
@@ -119,7 +124,7 @@ def reconcile_player_loyalty(player, *, actor=None):
     now = timezone.now()
 
     existing = {
-        issuance.milestone_id: issuance
+        (issuance.milestone_id, issuance.benefit_key): issuance
         for issuance in RewardIssuance.objects.select_for_update().filter(player=player).order_by("pk")
     }
     for issuance in existing.values():
@@ -147,25 +152,34 @@ def reconcile_player_loyalty(player, *, actor=None):
                 _audit_reward("REDEEMED_REWARD_ELIGIBILITY_RESTORED", issuance, actor, completed_attendances=completed)
 
     for milestone in LoyaltyMilestone.objects.filter(is_active=True, threshold__lte=completed).order_by("threshold"):
-        if milestone.pk in existing:
-            continue
-        issuance = RewardIssuance.objects.create(
-            player=player,
-            milestone=milestone,
-            terms_snapshot={
-                "threshold": milestone.threshold,
-                "name": milestone.name,
-                "benefits": deepcopy(milestone.benefits),
-            },
-            earned_at=now,
-        )
-        existing[milestone.pk] = issuance
-        _audit_reward("REWARD_ISSUED", issuance, actor, completed_attendances=completed)
+        if (milestone.pk, "") in existing:
+            continue  # a legacy row already covers this whole milestone
+        for index, benefit in enumerate(milestone.benefits):
+            if benefit["kind"] not in LoyaltyMilestone.REDEEMABLE_KINDS:
+                continue
+            key = benefit.get("key") or f"benefit-{index}"
+            if (milestone.pk, key) in existing:
+                continue
+            valid_days = benefit.get("valid_days")
+            issuance = RewardIssuance.objects.create(
+                player=player,
+                milestone=milestone,
+                benefit_key=key,
+                terms_snapshot={
+                    "threshold": milestone.threshold,
+                    "name": milestone.name,
+                    "benefits": [deepcopy(benefit)],
+                },
+                earned_at=now,
+                expires_at=now + timedelta(days=valid_days) if valid_days else None,
+            )
+            existing[(milestone.pk, key)] = issuance
+            _audit_reward("REWARD_ISSUED", issuance, actor, completed_attendances=completed, benefit_key=key)
     return tuple(existing.values())
 
 
 @transaction.atomic
-def redeem_reward(*, issuance_id, player_id, actor, openplay_id=None, details=None):
+def redeem_reward(*, issuance_id, player_id, actor, openplay_id=None, details=None, expired_override_reason=None):
     require_organizer(actor)
     # When supplied, lock the OpenPlay first, matching completion/cancellation.
     openplay = OpenPlay.objects.select_for_update().get(pk=openplay_id) if openplay_id is not None else None
@@ -182,15 +196,55 @@ def redeem_reward(*, issuance_id, player_id, actor, openplay_id=None, details=No
     if details is not None and not isinstance(details, dict):
         raise ValidationError("Redemption details must be an object")
     now = timezone.now()
+    redemption_details = dict(details or {})
+    override = {}
+    if issuance.is_expired(now):
+        reason = (expired_override_reason or "").strip()
+        if not reason:
+            raise ValidationError("This reward has expired; an admin override with a reason is required")
+        require_admin(actor)
+        override = {"expired_override": True, "override_reason": reason,
+                    "original_expires_at": issuance.expires_at.isoformat()}
+        redemption_details.update(override)
     redemption = RewardRedemption.objects.create(
         issuance=issuance,
         player_id=player_id,
         openplay=openplay,
         redeemed_by=actor,
         redeemed_at=now,
-        details=details or {},
+        details=redemption_details,
     )
     issuance.status = RewardIssuance.Status.REDEEMED
     issuance.save(update_fields=["status", "updated_at"])
-    _audit_reward("REWARD_REDEEMED", issuance, actor, redemption_id=redemption.pk, openplay_id=openplay_id)
+    _audit_reward(
+        "REWARD_REDEEMED", issuance, actor, redemption_id=redemption.pk, openplay_id=openplay_id, **override,
+    )
     return redemption
+
+
+@transaction.atomic
+def extend_reward_expiry(*, issuance_id, new_expires_at, reason, actor):
+    """An explicit, audited ADMIN action; restoring a revoked reward never changes its expiry."""
+    require_admin(actor)
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValidationError("An extension reason is required")
+    if not timezone.is_aware(new_expires_at):
+        raise ValidationError("The new expiry must include a timezone")
+    player_id = RewardIssuance.objects.values_list("player_id", flat=True).get(pk=issuance_id)
+    Player.objects.select_for_update().get(pk=player_id)
+    issuance = RewardIssuance.objects.select_for_update().get(pk=issuance_id)
+    if issuance.status == RewardIssuance.Status.REDEEMED:
+        raise ValidationError("A redeemed reward cannot be extended")
+    if issuance.expires_at is None:
+        raise ValidationError("This reward has no expiry")
+    if new_expires_at <= issuance.expires_at:
+        raise ValidationError("The new expiry must be later than the current expiry")
+    previous = issuance.expires_at
+    issuance.expires_at = new_expires_at
+    issuance.save(update_fields=["expires_at", "updated_at"])
+    _audit_reward(
+        "REWARD_EXPIRY_EXTENDED", issuance, actor, reason=reason,
+        previous_expires_at=previous.isoformat(), new_expires_at=new_expires_at.isoformat(),
+    )
+    return issuance

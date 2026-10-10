@@ -2,9 +2,15 @@
 {% block title %}Redeem reward{% endblock %}
 {% block organizer_content %}
 <a class="back-link" href="{% url 'organizer:player' player.pk %}">← {{ player.display_name }}</a>
-<section class="card confirm-card"><p class="eyebrow">Organizer redemption</p><h1>{{ issuance.terms_snapshot.name }}</h1><p>For {{ player.display_name }} · {{ issuance.get_status_display }}</p><ul>{% for benefit in issuance.terms_snapshot.benefits %}<li>{{ benefit.description }}</li>{% endfor %}</ul>
+<section class="card confirm-card"><p class="eyebrow">Organizer redemption</p><h1>{{ issuance.terms_snapshot.name }}</h1><p>For {{ player.display_name }} · {% if expired %}Expired{% else %}{{ issuance.get_status_display }}{% endif %}</p><ul>{% for benefit in issuance.terms_snapshot.benefits %}<li>{{ benefit.description }}</li>{% endfor %}</ul>
+  {% if issuance.expires_at and issuance.status == 'AVAILABLE' %}<p>{% if expired %}Expired{% else %}Expires{% endif %} {{ issuance.expires_at|club_time:"M j, Y" }}</p>{% endif %}
   <p>Apply the club benefit manually. This records one use of the entitlement.</p>
   {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
-  {% if issuance.status == 'AVAILABLE' %}<form method="post" class="stack">{% csrf_token %}{{ form.non_field_errors }}<label for="id_openplay">Target OpenPlay</label>{{ form.openplay }}{{ form.openplay.errors }}<button class="button primary" type="submit">Confirm redemption</button></form>{% endif %}
+  {% if expired and not can_override %}<p class="notice warning">This reward has expired. Only an admin can redeem it as a goodwill exception.</p>
+  {% elif issuance.status == 'AVAILABLE' %}<form method="post" class="stack">{% csrf_token %}{{ form.non_field_errors }}
+    {% if can_override %}<p class="notice warning">This reward has expired. Redeeming it is an admin override: give a reason (for example a system or app issue, exceptional circumstances, an organizer-approved extension, or a sponsor or fulfilment delay). The reason and the original expiry are recorded in the audit log.</p>{% endif %}
+    <label for="id_openplay">{% if form.fields.openplay.required %}Target OpenPlay{% else %}Target OpenPlay (optional){% endif %}</label>{{ form.openplay }}{{ form.openplay.errors }}
+    {% if can_override %}<label for="id_expired_override_reason">Reason for the admin override</label>{{ form.expired_override_reason }}{{ form.expired_override_reason.errors }}{% endif %}
+    <button class="button primary" type="submit">Confirm redemption</button></form>{% endif %}
 </section>
 {% endblock %}

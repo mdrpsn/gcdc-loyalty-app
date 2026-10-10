@@ -1,8 +1,9 @@
 {% for reward in rewards %}
-<article class="reward-card is-{{ reward.status|lower }}"><span class="reward-icon">{% include "player/_icon_gift.html" %}</span>
+<article class="reward-card is-{{ reward.status|lower }}{% if reward.is_expired %} is-expired{% endif %}"><span class="reward-icon">{% include "player/_icon_gift.html" %}</span>
 <div class="reward-body"><h3>{{ reward.terms_snapshot.name }}</h3><p class="reward-earned">Earned {{ reward.earned_at|date:"M j, Y" }}</p>
-  <strong class="status-note {% if reward.status == 'REVOKED' %}invalid{% endif %}">{{ reward.get_status_display }}</strong>
+  <strong class="status-note {% if reward.status == 'REVOKED' or reward.is_expired %}invalid{% endif %}">{% if reward.is_expired %}Expired{% else %}{{ reward.get_status_display }}{% endif %}</strong>
   {% for benefit in reward.terms_snapshot.benefits %}<p>{{ benefit.description }}</p>{% endfor %}
+  {% if reward.expires_at and reward.status == 'AVAILABLE' %}<p class="reward-expiry">{% if reward.is_expired %}Expired{% else %}Expires{% endif %} {{ reward.expires_at|club_time:"M j, Y" }}</p>{% endif %}
   {% if reward.status == 'REDEEMED' %}<p>Redeemed {{ reward.redemption.redeemed_at|club_time:"M j, Y · g:i A" }}{% if reward.redemption.openplay %} for OpenPlay at {{ reward.redemption.openplay.venue.name }}{% endif %}.</p>{% endif %}
   {% if reward.status == 'REVOKED' %}<p>This reward is currently unavailable.</p>{% endif %}
 </div></article>

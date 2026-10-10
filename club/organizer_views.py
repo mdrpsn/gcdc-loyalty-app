@@ -20,10 +20,10 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from accounts.permissions import is_admin, require_admin, require_organizer
 
 from .forms import (
-    AuditFilterForm, CorrectionForm, IdentityLinkForm, IdentityLookupForm, OpenPlayForm, ReasonForm,
+    AuditFilterForm, CorrectionForm, ExtensionForm, IdentityLinkForm, IdentityLookupForm, OpenPlayForm, ReasonForm,
     RedemptionForm, VenueForm,
 )
-from .loyalty import get_loyalty_summary, redeem_reward
+from .loyalty import extend_reward_expiry, get_loyalty_summary, redeem_reward
 from .models import Attendance, AttendanceSubmission, AuditEvent, OpenPlay, Player, Registration, RewardIssuance, Venue
 from .services import (
     add_historical_attendance,
@@ -315,6 +315,12 @@ def player_detail(request, player_id):
     })
 
 
+def _redeem_needs_openplay(issuance):
+    """Discounts and free OpenPlays apply to a session; gear and keepsakes do not."""
+    return any(benefit.get("kind") in {"DISCOUNT", "FREE_OPENPLAY"}
+               for benefit in issuance.terms_snapshot.get("benefits", []))
+
+
 @organizer_view
 @require_http_methods(["GET", "POST"])
 def redeem(request, player_id, issuance_id):
@@ -322,15 +328,22 @@ def redeem(request, player_id, issuance_id):
     issuance = get_object_or_404(
         RewardIssuance.objects.select_related("milestone"), pk=issuance_id, player=player
     )
-    form = RedemptionForm(request.POST or None)
+    expired = issuance.is_expired()
+    can_override = expired and is_admin(request.user)
+    form = RedemptionForm(
+        request.POST if request.method == "POST" else None,
+        openplay_required=_redeem_needs_openplay(issuance), override_required=can_override,
+    )
     error = None
     status = 200
     if request.method == "POST":
         if form.is_valid():
+            openplay = form.cleaned_data.get("openplay")
             try:
                 redeem_reward(
                     issuance_id=issuance_id, player_id=player_id, actor=request.user,
-                    openplay_id=form.cleaned_data["openplay"].pk,
+                    openplay_id=openplay.pk if openplay else None,
+                    expired_override_reason=form.cleaned_data.get("expired_override_reason") if can_override else None,
                 )
             except ValidationError as exception:
                 error = _error_text(exception)
@@ -344,6 +357,35 @@ def redeem(request, player_id, issuance_id):
         error = "Only an available reward can be redeemed."
         status = 409
     return render(request, "organizer/redeem.html", {
+        "player": player, "issuance": issuance, "form": form, "error": error,
+        "expired": expired, "can_override": can_override,
+    }, status=status)
+
+
+@admin_view
+@require_http_methods(["GET", "POST"])
+def extend_expiry(request, player_id, issuance_id):
+    player = get_object_or_404(Player, pk=player_id)
+    issuance = get_object_or_404(RewardIssuance, pk=issuance_id, player=player)
+    form = ExtensionForm(request.POST or None)
+    error = None
+    status = 200
+    if request.method == "POST":
+        if form.is_valid():
+            try:
+                extend_reward_expiry(
+                    issuance_id=issuance_id, new_expires_at=form.cleaned_data["new_expires_at"],
+                    reason=form.cleaned_data["reason"], actor=request.user,
+                )
+            except ValidationError as exception:
+                error = _error_text(exception)
+                status = 409
+            else:
+                messages.success(request, "Reward expiry extended and recorded.")
+                return redirect("organizer:player", player_id=player_id)
+        else:
+            status = 400
+    return render(request, "organizer/extend_expiry.html", {
         "player": player, "issuance": issuance, "form": form, "error": error,
     }, status=status)
 

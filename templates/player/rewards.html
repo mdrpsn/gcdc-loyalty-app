@@ -13,6 +13,7 @@
 {% endwith %}
 {% endif %}
 <section class="reward-section"><h2>Available</h2><div class="reward-grid">{% include "player/_reward_list.html" with rewards=available %}</div></section>
+{% if expired %}<section class="reward-section"><h2>Expired</h2><p class="muted">Ask an organizer if you think one of these should still count.</p><div class="reward-grid">{% include "player/_reward_list.html" with rewards=expired %}</div></section>{% endif %}
 <section class="reward-section"><h2>Redeemed</h2><div class="reward-grid">{% include "player/_reward_list.html" with rewards=redeemed %}</div></section>
 <section class="reward-section"><h2>Revoked</h2><div class="reward-grid">{% include "player/_reward_list.html" with rewards=revoked %}</div></section>
 {% if upcoming %}

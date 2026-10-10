@@ -60,7 +60,7 @@
   <div class="reward-scroll">
     {% for reward in available_rewards %}
     <article class="reward-chip court-bg"><span class="reward-icon">{% include "player/_icon_gift.html" %}</span>
-      <div><strong>{{ reward.terms_snapshot.name }}</strong>{% for benefit in reward.terms_snapshot.benefits %}<span>{{ benefit.description }}</span>{% endfor %}<em>Available</em></div></article>
+      <div><strong>{{ reward.terms_snapshot.name }}</strong>{% for benefit in reward.terms_snapshot.benefits %}<span>{{ benefit.description }}</span>{% endfor %}{% if reward.expires_at %}<span>Expires {{ reward.expires_at|club_time:"M j, Y" }}</span>{% endif %}<em>Available</em></div></article>
     {% endfor %}
   </div>
   {% else %}<p class="card empty-inline">No available reward yet. Keep playing!</p>{% endif %}

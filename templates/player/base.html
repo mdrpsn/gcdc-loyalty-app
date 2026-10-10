@@ -4,7 +4,7 @@
 {% block body %}
 <header class="appbar">
   <div class="appbar-inner">
-    <a class="appbar-brand" href="{% url 'player:home' %}"><span class="brand-mark" aria-hidden="true">●</span> Got Cha Dink <strong>Club</strong></a>
+    <a class="appbar-brand" href="{% url 'player:home' %}"><img class="brand-logo" src="{% static 'club/img/gcdc-logo.jpg' %}" alt="" width="52" height="52"> Got Cha Dink <strong>Club</strong></a>
     <details class="user-menu">
       <summary aria-label="Account menu"><span class="avatar" aria-hidden="true">{{ request.user|avatar_initials }}</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
       <div class="menu">

@@ -147,7 +147,7 @@ class PlayerRequestTests(TestCase):
         pending.save()
         reconcile_player_loyalty(self.player, actor=self.staff)
         response = self.client.get(self.url("home"))
-        self.assertEqual(response.context["summary"].next_milestone.threshold, 20)
+        self.assertEqual(response.context["summary"].next_milestone.threshold, 25)
         self.assertContains(response, "Available reward")
         self.assertContains(response, "Dinker")
         self.assertNotContains(response, "Reward pending session completion")
@@ -184,25 +184,26 @@ class PlayerRequestTests(TestCase):
         self.assertEqual(self.client.get(self.url("home")).context["summary"].openplays_attended, 1)
 
     def test_reward_status_and_historical_snapshot(self):
-        self.history(30)
+        self.history(75)
         reconcile_player_loyalty(self.player, actor=self.staff)
-        rewards = list(RewardIssuance.objects.filter(player=self.player).order_by("milestone__threshold"))
-        self.assertEqual(len(rewards), 3)
+        # 10: the ₱50 discount; 50: free OpenPlay; 75: free OpenPlay and overgrip (recognition has no row).
+        rewards = list(RewardIssuance.objects.filter(player=self.player).order_by("milestone__threshold", "pk"))
+        self.assertEqual(len(rewards), 4)
         RewardRedemption.objects.create(issuance=rewards[0], player=self.player, redeemed_by=self.staff, openplay=self.future)
         rewards[0].status = RewardIssuance.Status.REDEEMED
         rewards[0].save()
-        rewards[2].status = RewardIssuance.Status.REVOKED
-        rewards[2].revoked_at = self.now
-        rewards[2].revoked_reason = "Correction"
-        rewards[2].save()
-        rewards[1].milestone.benefits = [{"kind": "DISCOUNT", "description": "Changed later", "amount_php": 999}]
+        rewards[3].status = RewardIssuance.Status.REVOKED
+        rewards[3].revoked_at = self.now
+        rewards[3].revoked_reason = "Correction"
+        rewards[3].save()
+        rewards[1].milestone.benefits = [{"kind": "PERK", "description": "Changed later"}]
         rewards[1].milestone.save()
         with CaptureQueriesContext(connection) as captured:
             response = self.client.get(self.url("rewards"))
         self.assertContains(response, "Available")
         self.assertContains(response, "Redeemed")
         self.assertContains(response, "Revoked")
-        self.assertContains(response, "₱100 OFF one OpenPlay")
+        self.assertContains(response, "FREE one OpenPlay")
         self.assertNotContains(response, "Changed later")
         self.assertContains(response, "for OpenPlay at Court Green")
         self.assertLessEqual(len(captured), 8)

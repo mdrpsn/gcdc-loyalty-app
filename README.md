@@ -109,6 +109,18 @@ The approved target is Render: one Python 3.14 WSGI web service and one paid Ren
 
 Local reset emails are written to ignored `.local-emails/`; production uses Resend SMTP after sender verification. A repeatable local restore check is `uv run --locked --env-file .env python scripts/verify_local_restore.py`. Render PITR, offsite logical backups, Better Stack alerts, and real SMTP delivery are not configured yet.
 
+### Off-site backup to Cloudflare R2 (scheduled)
+
+`scripts/offsite_backup.py backup` takes the same encrypted dump and uploads it to an S3-compatible bucket (Cloudflare R2) as `daily/<file>` and, on the 1st of the month, also `monthly/<file>`. It reads each upload back and compares the size, exits non-zero on any failure, and then pings `BACKUP_HEARTBEAT_URL` (a Better Stack heartbeat) so a missed or failed run raises an alert. Only the encrypted file leaves the host. It signs requests with AWS Signature V4 using the standard library (no extra dependency) and does not import Django, so the cron job needs only the variables below.
+
+Variables (names only; values go in the host secret manager): `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_SSLMODE`, `BACKUP_ENCRYPTION_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `BACKUP_HEARTBEAT_URL`.
+
+One-time Cloudflare setup: create a private R2 bucket; add lifecycle rules **`daily/` delete after 30 days** and **`monthly/` delete after 365 days** (this is where retention is enforced); create an R2 API token with **Object Read & Write limited to that bucket**. Keep `BACKUP_ENCRYPTION_KEY` in a password manager as well as the host: without it no backup can be restored.
+
+Render Cron Job (same repository, branch, region, and environment as the database): build `uv sync --locked --no-dev`, command `uv run --locked --no-sync python scripts/offsite_backup.py backup`, schedule `0 18 * * *` (02:00 Asia/Manila). Whether `pg_dump` 18 is available to the cron runtime must be confirmed with a manual run.
+
+Restore drill (needs the same R2 variables and key): `python scripts/offsite_backup.py fetch daily/<file>.dump.enc <new-local-file>` then `python scripts/verify_local_restore.py <new-local-file>`. `fetch` refuses to overwrite a file or to take anything but a `daily/` or `monthly/` key.
+
 ### Encrypted logical backup (manual, local files only)
 
 `scripts/backup_database.py` runs `pg_dump -Fc` with the `DB_*` variables, encrypts the dump with Fernet (AES-128-CBC plus HMAC-SHA256, from the locked `cryptography` package), and writes `backups/gcdc_<DB_NAME>_<UTC YYYYMMDDTHHMMSSZ>.dump.enc`. No plaintext dump touches disk, an existing file is never overwritten, and a failed dump or encryption leaves no file. The whole dump is held in memory (fine at club scale). It needs `pg_dump` on `PATH` or `PG_BIN`, and a key that you keep **outside the repository and the database host**; without the key a backup cannot be restored. Generate it once with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`, store it in a password manager, and set it as `BACKUP_ENCRYPTION_KEY`.

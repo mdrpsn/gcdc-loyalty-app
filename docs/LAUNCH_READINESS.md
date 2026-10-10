@@ -27,7 +27,7 @@ Status meanings: **READY** = implemented and locally verified; **NOT CONFIGURED*
 | Proxy/HTTPS configuration | REQUIRES EXTERNAL VERIFICATION | Confirm proxy removes client-supplied X-Forwarded-Proto, sets its own value, then set DJANGO_TRUST_PROXY_SSL=true; verify redirect and secure cookies |
 | SMTP credentials and DEFAULT_FROM_EMAIL | NOT CONFIGURED | Select provider and verify sender domain, TLS, delivery, bounces, signup verification, and reset messages |
 | Static files | REQUIRES EXTERNAL VERIFICATION | WhiteNoise serves collected /static/ from the WSGI service; verify CSS over Render HTTPS |
-| Encrypted, off-site PostgreSQL backups | NOT CONFIGURED | Configure scheduled backups, access control, retention, alerts, and an isolated restore |
+| Encrypted, off-site PostgreSQL backups | NOT CONFIGURED | Upload code exists and is tested against a real S3-compatible server (`scripts/offsite_backup.py`, README). Still required: create the R2 bucket, lifecycle rules (30 days daily, 12 months monthly), scoped API token, Render Cron Job, Better Stack heartbeat, a verified restore from R2, and key custody |
 | Availability/error/log monitoring | NOT CONFIGURED | Route JSON process logs, HTTP 5xx, failed /health/, database/SMTP/backup/storage failures to an alert destination |
 | Login/reset abuse limits | NOT CONFIGURED | At trusted edge, limit POST /login/, /password-reset/, and reset-confirmation attempts by IP and normalized account where possible; preserve non-enumerating responses. Signup has database-backed email/IP send limits, which still need staging validation behind the proxy. |
 | HSTS | REQUIRES EXTERNAL VERIFICATION | Keep DJANGO_HSTS_SECONDS=0 until domain and HTTPS checks below pass |

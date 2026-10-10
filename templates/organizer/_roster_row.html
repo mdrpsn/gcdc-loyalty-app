@@ -9,9 +9,11 @@
     {% else %}<span class="state waiting">No attendance submitted</span>{% endif %}
   </div>
   {% if not row.player.user_id and not row.attendance %}<span class="state waiting">Account required before attendance submission</span>{% endif %}
+  {% if session_started %}
   {% if row.player.user_id and openplay.status != 'CANCELLED' and not row.attendance and not row.submission or row.player.user_id and openplay.status != 'CANCELLED' and row.submission.status == 'DECLINED' %}
   <form method="post" action="{% url 'organizer:check_in' openplay.pk row.player.pk %}">
     {% csrf_token %}<input type="hidden" name="q" value="{{ query }}"><button class="button primary" type="submit" aria-label="Submit attendance for {{ row.player.display_name }}">Submit for approval</button>
   </form>
   {% endif %}
+  {% elif row.player.user_id and openplay.status != 'CANCELLED' and not row.attendance and not row.submission %}<span class="muted">Attendance opens when the OpenPlay starts</span>{% endif %}
 </article>

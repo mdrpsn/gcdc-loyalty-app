@@ -177,6 +177,17 @@ class OrganizerRequestTests(TestCase):
         self.assertContains(response, "was not cancelled")
         self.assertFalse(Attendance.objects.filter(player=self.other).exists())
 
+    def test_submit_button_appears_only_once_the_openplay_has_started(self):
+        Registration.objects.create(player=self.player, openplay=self.future)
+        upcoming = self.client.get(self.url("session", self.future.pk), {"q": "Jane"})
+        self.assertNotContains(upcoming, "Submit attendance for Jane Player")
+        self.assertContains(upcoming, "Attendance opens when the OpenPlay starts")
+        self.assertFalse(upcoming.context["session_started"])
+        started = self.client.get(self.url("session", self.current.pk), {"q": "Jane"})
+        self.assertContains(started, "Submit attendance for Jane Player")
+        self.assertNotContains(started, "Attendance opens when the OpenPlay starts")
+        self.assertTrue(started.context["session_started"])
+
     def test_new_player_must_sign_up_before_staff_can_submit(self):
         response = self.client.get(self.url("session", self.current.pk), {"q": "New Walk In"})
         self.assertContains(response, "New players must create an account")

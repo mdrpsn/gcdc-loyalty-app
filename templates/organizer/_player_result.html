@@ -7,9 +7,11 @@
     {% if result.player.phone %}<small>{{ result.player.phone }}</small>{% endif %}
   </div>
   {% if not result.player.user_id %}<span class="state waiting">Account required before attendance submission</span>{% endif %}
+  {% if session_started %}
   {% if result.player.user_id and openplay.status != 'CANCELLED' and not result.attendance and not result.submission or result.player.user_id and openplay.status != 'CANCELLED' and result.submission.status == 'DECLINED' %}
   <form method="post" action="{% url 'organizer:check_in' openplay.pk result.player.pk %}">
     {% csrf_token %}<input type="hidden" name="q" value="{{ query }}"><button class="button primary" type="submit" aria-label="Submit attendance for {{ result.player.display_name }}">Submit for approval</button>
   </form>
   {% endif %}
+  {% elif result.player.user_id and openplay.status != 'CANCELLED' and not result.attendance and not result.submission %}<span class="muted">Attendance opens when the OpenPlay starts</span>{% endif %}
 </article>

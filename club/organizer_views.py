@@ -213,6 +213,7 @@ def _session_context(request, openplay, query):
         "outside_roster_attendances": outside_roster_attendances,
         "outside_roster_submissions": outside_roster_submissions,
         "reward_rows": reward_rows,
+        "session_started": timezone.now() >= openplay.starts_at,
         "registered_count": len(registrations),
         "checked_in_count": checked_in,
         "pending_count": pending_count,

@@ -43,7 +43,7 @@ class RewardRequestViewTests(TestCase):
         ])
         reconcile_player_loyalty(self.player, actor=self.admin)
         self.discount = RewardIssuance.objects.get(player=self.player, benefit_key="discount-50")
-        self.gear = RewardIssuance.objects.get(player=self.player, benefit_key="overgrip")
+        self.gear = RewardIssuance.objects.get(player=self.player, benefit_key="club-perk")
         self.soon = self.upcoming(1)
 
     def upcoming(self, days):

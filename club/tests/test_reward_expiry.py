@@ -63,18 +63,20 @@ class RewardExpiryTests(TestCase):
         }
         self.assertEqual(windows, {
             (10, "discount-50"): timedelta(days=30),
+            (20, "discount-100"): timedelta(days=30),
+            (30, "free-openplay"): timedelta(days=30),
             (50, "free-openplay"): timedelta(days=30),
             (75, "free-openplay"): timedelta(days=30),
-            (75, "overgrip"): timedelta(days=60),
+            (75, "club-perk"): timedelta(days=60),
         })
 
-    def test_recognition_only_milestone_is_status_without_a_reward_row(self):
-        self.add_history(25)
-        self.assertEqual(
-            list(RewardIssuance.objects.filter(player=self.player).values_list("milestone__threshold", flat=True)), [10]
-        )
+    def test_recognition_is_status_without_a_reward_row(self):
+        # The 100 milestone is "special recognition" (status) plus the premium reward: only the reward is a row.
+        self.add_history(100)
+        at_100 = RewardIssuance.objects.filter(player=self.player, milestone__threshold=100)
+        self.assertEqual(list(at_100.values_list("benefit_key", flat=True)), ["premium-reward"])
         earned = [milestone.threshold for milestone in get_loyalty_summary(self.player).earned_milestones]
-        self.assertEqual(earned, [10, 25])
+        self.assertEqual(earned, [10, 20, 30, 50, 75, 100])
 
     def test_expired_reward_needs_an_admin_override_with_a_reason(self):
         issuance = self.make_expired(self.discount())

@@ -58,7 +58,7 @@ class RewardRequestTests(TestCase):
         reconcile_player_loyalty(self.player, actor=self.admin)
         self.discount = RewardIssuance.objects.get(player=self.player, benefit_key="discount-50")
         self.free = RewardIssuance.objects.get(player=self.player, milestone__threshold=50, benefit_key="free-openplay")
-        self.gear = RewardIssuance.objects.get(player=self.player, benefit_key="overgrip")
+        self.gear = RewardIssuance.objects.get(player=self.player, benefit_key="club-perk")
         self.soon = self.upcoming(1)
         self.later = self.upcoming(3)
 

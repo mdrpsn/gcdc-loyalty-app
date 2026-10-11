@@ -43,9 +43,16 @@ class SessionHoursOnScreensTests(TestCase):
         self.member = User.objects.create_user("member@example.com", "Securepass123")
         Player.objects.create(user=self.member, display_name="Maya Santos", phone="111")
         self.venue = Venue.objects.create(name="Pickle Star")
-        noon = timezone.localtime().replace(hour=12, minute=0, second=0, microsecond=0)
-        self.today = create_openplay(venue_id=self.venue.pk, starts_at=noon, ends_at=noon + timedelta(hours=2),
+        # Fixtures must not depend on the time of day the tests run: "today" starts just after midnight
+        # (so it is never in the future), the other two start at noon on later days (never in the past).
+        local = timezone.localtime()
+        early = local.replace(hour=0, minute=5, second=0, microsecond=0)
+        noon = local.replace(hour=12, minute=0, second=0, microsecond=0)
+        self.today = create_openplay(venue_id=self.venue.pk, starts_at=early, ends_at=early + timedelta(hours=2),
                                      actor=self.organizer, name="Today session")
+        tomorrow = noon + timedelta(days=1)
+        self.tomorrow = create_openplay(venue_id=self.venue.pk, starts_at=tomorrow, ends_at=tomorrow + timedelta(hours=2),
+                                        actor=self.organizer, name="Tomorrow session")
         later = noon + timedelta(days=2)
         self.upcoming = create_openplay(venue_id=self.venue.pk, starts_at=later, ends_at=later + timedelta(hours=4),
                                         actor=self.organizer, name="Upcoming session")
@@ -54,8 +61,10 @@ class SessionHoursOnScreensTests(TestCase):
         self.client.force_login(self.organizer)
         html = self.client.get(reverse("organizer:home")).content.decode()
         today_card = html[html.index("Today session"):html.index("Coming up this week")]
+        tomorrow_card = html[html.index("Tomorrow session"):html.index("Upcoming session")]
         upcoming_card = html[html.index("Upcoming session"):]
         self.assertIn("2 hrs", today_card)
+        self.assertIn("2 hrs", tomorrow_card)
         self.assertIn("4 hrs", upcoming_card)
 
     def test_session_page_shows_the_length(self):
@@ -66,5 +75,6 @@ class SessionHoursOnScreensTests(TestCase):
     def test_players_see_the_length_on_upcoming_openplays(self):
         self.client.force_login(self.member)
         html = self.client.get(reverse("player:openplays")).content.decode()
-        self.assertIn("2 hrs", html[html.index("Today session"):html.index("Upcoming session")])
+        self.assertNotIn("Today session", html)  # already started, so not "upcoming"
+        self.assertIn("2 hrs", html[html.index("Tomorrow session"):html.index("Upcoming session")])
         self.assertIn("4 hrs", html[html.index("Upcoming session"):])

@@ -104,9 +104,13 @@ class OffsiteBackupTests(SimpleTestCase):
 
     def backup(self, day=10, **overrides):
         env = {**self.env, **overrides}
+        now = datetime(2026, 10, day, 18, 0, 0, tzinfo=timezone.utc)
+        # Sign requests with the same fixed time, not the machine's clock, so the tests give the
+        # same result on any day (the signature scope contains the date).
+        store = offsite.store_from_env(env)
+        store.clock = lambda: now
         return offsite.run_backup(
-            env, now=datetime(2026, 10, day, 18, 0, 0, tzinfo=timezone.utc), runner=self.runner(),
-            heartbeat=lambda url: self.pings.append(url),
+            env, store=store, now=now, runner=self.runner(), heartbeat=lambda url: self.pings.append(url),
         )
 
     def test_signature_matches_the_published_aws_example(self):

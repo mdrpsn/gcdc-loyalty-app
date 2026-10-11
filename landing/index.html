@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1b36">
+<title>Got Cha Dink Club · Join PlayPass</title>
+<meta name="description" content="Play OpenPlay with Got Cha Dink Club and earn rewards for showing up. Join PlayPass, it takes a minute.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Got Cha Dink Club">
+<meta property="og:title" content="Got Cha Dink Club · Join PlayPass">
+<meta property="og:description" content="Good rallies. Great company. More to play for. Every OpenPlay you attend counts toward rewards.">
+<meta property="og:url" content="https://gotchadinkclub.com/">
+<meta property="og:image" content="https://gotchadinkclub.com/assets/gcdc-logo.jpg">
+<link rel="icon" type="image/jpeg" href="assets/gcdc-logo.jpg">
+<style>
+  @font-face { font-family: "Inter"; src: url("assets/inter.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+  :root {
+    --brand-deep: #0a1630; --brand: #0d1b36; --brand-soft: #16264a;
+    --accent: #ffa366; --accent-hover: #ffb98a; --accent-tint: #fff1e6; --ball: #f5d315;
+    --ink: #0d1b36; --muted: #4d5b78; --line: #dde2ee; --bg: #f2f4fa;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font: 17px/1.55 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+  a { color: inherit; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+
+  /* hero */
+  .hero { background: radial-gradient(120% 90% at 85% 0%, var(--brand-soft) 0%, var(--brand) 55%, var(--brand-deep) 100%); color: #fff; padding: 34px 0 56px; text-align: center; }
+  .brand { display: inline-flex; align-items: center; gap: 12px; font-weight: 800; letter-spacing: .01em; text-decoration: none; }
+  .brand img { width: 52px; height: 52px; border-radius: 12px; }
+  .brand strong { color: var(--accent); }
+  .hero h1 { font-size: clamp(2rem, 7.5vw, 3.4rem); line-height: 1.08; margin: 34px auto 14px; max-width: 16ch; letter-spacing: -.02em; text-wrap: balance; }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero p.lead { font-size: 1.12rem; color: #d6dcf0; max-width: 36rem; margin: 0 auto 26px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 12px 26px; border-radius: 13px; font-weight: 800; font-size: 1.05rem; text-decoration: none; border: 2px solid transparent; }
+  .btn.primary { background: var(--accent); color: var(--ink); }
+  .btn.primary:hover { background: var(--accent-hover); }
+  .btn.ghost { color: #fff; border-color: rgba(255,255,255,.4); }
+  .btn.ghost:hover { border-color: #fff; }
+  .btn:focus-visible, a:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+  .hero .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .tag { margin-top: 26px; font-size: .78rem; letter-spacing: .18em; text-transform: uppercase; color: #a9b4d6; }
+  .tag span { color: var(--ball); }
+
+  /* sections */
+  section.block { padding: 52px 0 8px; }
+  h2 { font-size: 1.7rem; line-height: 1.2; margin: 0 0 8px; letter-spacing: -.01em; }
+  .sub { color: var(--muted); margin: 0 0 26px; max-width: 40rem; }
+  .steps { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); padding: 0; margin: 0; list-style: none; counter-reset: s; }
+  .steps li { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 20px; counter-increment: s; }
+  .steps li::before { content: counter(s); display: inline-flex; width: 34px; height: 34px; border-radius: 50%; align-items: center; justify-content: center; background: var(--brand); color: #fff; font-weight: 800; margin-bottom: 10px; }
+  .steps strong { display: block; font-size: 1.08rem; margin-bottom: 4px; }
+  .steps p { margin: 0; color: var(--muted); }
+
+  .ladder { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); padding: 0; margin: 0; list-style: none; }
+  .ladder li { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+  .ladder .n { font-size: 2rem; font-weight: 800; line-height: 1; color: var(--brand); }
+  .ladder .n small { font-size: .8rem; font-weight: 700; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin-left: 4px; }
+  .ladder h3 { margin: 8px 0 4px; font-size: 1.05rem; }
+  .ladder p { margin: 0; color: var(--muted); font-size: .96rem; }
+  .ladder li.top { background: var(--brand); border-color: var(--brand); }
+  .ladder li.top .n, .ladder li.top h3 { color: #fff; } .ladder li.top p { color: #c9d1ea; } .ladder li.top .n small { color: var(--ball); }
+  .fine { color: var(--muted); font-size: .88rem; margin-top: 14px; }
+
+  .need { background: var(--accent-tint); border: 1px solid #ffd2b3; border-radius: 16px; padding: 18px 20px; margin-top: 8px; }
+  .need strong { color: #8a4311; }
+  .contact { text-align: center; padding: 46px 0 6px; }
+  .contact p { color: var(--muted); max-width: 32rem; margin: 0 auto 18px; }
+  .contact .links { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn.outline { color: var(--brand); border-color: var(--brand); background: #fff; }
+  .btn.outline:hover { background: var(--brand); color: #fff; }
+  .closing { text-align: center; padding: 54px 0 30px; }
+  .closing p { color: var(--muted); max-width: 32rem; margin: 0 auto 22px; }
+  footer { text-align: center; color: var(--muted); font-size: .86rem; padding: 10px 20px 28px; }
+  footer span { color: var(--accent); font-weight: 800; }
+
+  /* sticky call to action */
+  .sticky { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: rgba(13,27,54,.96); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 24px rgba(13,27,54,.28); }
+  .sticky .row { max-width: 980px; margin: 0 auto; display: flex; gap: 10px; align-items: center; }
+  .sticky .btn.primary { flex: 1; }
+  .sticky .btn.ghost { min-width: 96px; }
+  .sticky .hint { display: none; color: #c9d1ea; font-weight: 600; }
+  @media (min-width: 720px) { .sticky .hint { display: block; flex: 1.2; } .sticky .btn.primary { flex: none; min-width: 220px; } }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Got Cha Dink Club"><img src="assets/gcdc-logo.jpg" alt="" width="52" height="52"> <span>Got Cha Dink <strong>Club</strong></span></a>
+    <h1>Good rallies. Great company. <em>More to play for.</em></h1>
+    <p class="lead">Join PlayPass and every OpenPlay you attend with us counts toward rewards, from discounts and free sessions to a premium reward at 100.</p>
+    <div class="actions">
+      <a class="btn primary" href="https://playpass.gotchadinkclub.com/signup/">Join PlayPass</a>
+      <a class="btn ghost" href="https://playpass.gotchadinkclub.com/login/">I already have an account</a>
+    </div>
+    <p class="tag"><span>Dink.</span> Rally. <span>Laugh.</span> Repeat.</p>
+  </div>
+</header>
+
+<main>
+  <section class="block" id="how">
+    <div class="wrap">
+      <h2>How PlayPass works</h2>
+      <p class="sub">One OpenPlay attended counts as one point. No scorekeeping, no extra apps to learn.</p>
+      <ol class="steps">
+        <li><strong>Sign up</strong><p>Create your PlayPass with your email. We send you a link to confirm it.</p></li>
+        <li><strong>Come play</strong><p>Join an OpenPlay. After the session, your attendance is confirmed by the club.</p></li>
+        <li><strong>Earn rewards</strong><p>Hit a milestone and your reward appears in your account, ready to use.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="block" id="rewards">
+    <div class="wrap">
+      <h2>Keep showing up. We reward it.</h2>
+      <p class="sub">Milestones are counted in OpenPlays attended.</p>
+      <ul class="ladder">
+        <li><div class="n">10<small>OpenPlays</small></div><h3>Dinker</h3><p>₱50 OFF one OpenPlay</p></li>
+        <li><div class="n">20<small>OpenPlays</small></div><h3>Dink Addict</h3><p>₱100 OFF one OpenPlay</p></li>
+        <li><div class="n">30<small>OpenPlays</small></div><h3>Court Regular</h3><p>FREE OpenPlay</p></li>
+        <li><div class="n">50<small>OpenPlays</small></div><h3>Got Cha Loyalist</h3><p>FREE OpenPlay + exclusive 50-OP recognition</p></li>
+        <li><div class="n">75<small>OpenPlays</small></div><h3>Club Veteran</h3><p>FREE OpenPlay + small exclusive club item/perk</p></li>
+        <li class="top"><div class="n">100<small>OpenPlays</small></div><h3>Century Club</h3><p>Special recognition + premium loyalty reward</p></li>
+      </ul>
+      <p class="fine">Rewards are set by the club and may change. Each reward has a validity period, shown in your account.</p>
+    </div>
+  </section>
+
+  <section class="block" id="need">
+    <div class="wrap">
+      <div class="need"><strong>Before you sign up:</strong> have your ReClub name and ReClub profile link handy. We use them to match you to the right player when we confirm attendance.</div>
+    </div>
+  </section>
+
+  <section class="contact" id="contact">
+    <div class="wrap">
+      <h2>Questions? Say hi.</h2>
+      <p>Message us on Facebook or give us a call.</p>
+      <div class="links">
+        <a class="btn outline" href="https://www.facebook.com/gotchadinkclub" target="_blank" rel="noopener">Got Cha Dink Club on Facebook</a>
+        <a class="btn outline" href="tel:+639985108235">Call 0998 510 8235</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="closing">
+    <div class="wrap">
+      <h2>Ready when you are.</h2>
+      <p>It takes about a minute. Your first rally is waiting.</p>
+      <a class="btn primary" href="https://playpass.gotchadinkclub.com/signup/">Join PlayPass</a>
+    </div>
+  </section>
+</main>
+
+<footer><span>Dink.</span> Rally. <span>Laugh.</span> Repeat. · © Got Cha Dink Club · <a href="https://www.facebook.com/gotchadinkclub" target="_blank" rel="noopener">Facebook</a></footer>
+
+<div class="sticky" role="region" aria-label="Join PlayPass">
+  <div class="row">
+    <span class="hint">Every OpenPlay you attend counts.</span>
+    <a class="btn primary" href="https://playpass.gotchadinkclub.com/signup/">Join PlayPass</a>
+    <a class="btn ghost" href="https://playpass.gotchadinkclub.com/login/">Log in</a>
+  </div>
+</div>
+
+</body>
+</html>

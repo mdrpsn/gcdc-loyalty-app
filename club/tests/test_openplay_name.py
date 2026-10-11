@@ -56,15 +56,32 @@ class OpenPlayNameTests(TestCase):
         self.assertIn("Sunday Morning Dinkers", title)
         self.assertNotIn("OpenPlay at Pickle Star", title)  # only the editor's placeholder mentions the default
 
-    def test_the_schedule_form_has_an_optional_name_field(self):
-        form = OpenPlayForm(data={"venue": self.venue.pk, "starts_at": "2026-12-01T18:00",
-                                  "ends_at": "2026-12-01T20:00"})
-        self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data["name"], "")
-        too_long = OpenPlayForm(data={"venue": self.venue.pk, "starts_at": "2026-12-01T18:00",
-                                      "ends_at": "2026-12-01T20:00", "name": "x" * 81})
+    def test_the_schedule_form_requires_a_name(self):
+        base = {"venue": self.venue.pk, "starts_at": "2026-12-01T18:00", "ends_at": "2026-12-01T20:00"}
+        for missing in ({}, {"name": ""}, {"name": "   "}):
+            form = OpenPlayForm(data={**base, **missing})
+            self.assertFalse(form.is_valid(), missing)
+            self.assertIn("name", form.errors)
+        self.assertTrue(OpenPlayForm(data={**base, "name": "Sunday Dinkers"}).is_valid())
+        too_long = OpenPlayForm(data={**base, "name": "x" * 81})
         self.assertFalse(too_long.is_valid())
         self.assertIn("name", too_long.errors)
+
+    def test_posting_the_schedule_form_without_a_name_creates_nothing(self):
+        self.client.force_login(self.organizer)
+        response = self.client.post(reverse("organizer:openplay_new"), {
+            "venue": self.venue.pk, "name": "  ", "starts_at": "2026-12-04T18:00", "ends_at": "2026-12-04T20:00",
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "This field is required", status_code=400)
+        self.assertFalse(OpenPlay.objects.exists())
+
+    def test_the_schedule_form_marks_the_name_as_required_on_screen(self):
+        self.client.force_login(self.organizer)
+        page = self.client.get(reverse("organizer:openplay_new"))
+        self.assertContains(page, "Session name")
+        self.assertNotContains(page, "(optional)")
+        self.assertRegex(page.content.decode(), r'<input[^>]*name="name"[^>]*required')
 
     def test_posting_the_schedule_form_with_a_name_creates_the_named_session(self):
         self.client.force_login(self.organizer)
@@ -94,12 +111,25 @@ class OpenPlayNameTests(TestCase):
         self.assertEqual(events[0].actor, self.organizer)
         self.assertEqual(events[1].actor, self.admin)
 
-    def test_renaming_to_blank_returns_to_the_default_name(self):
-        openplay = self.make(name="Temporary")
-        rename_openplay(openplay_id=openplay.pk, name="   ", actor=self.organizer)
+    def test_a_name_cannot_be_blanked_so_every_session_keeps_one(self):
+        openplay = self.make(name="Keep this")
+        for blank in ("", "   "):
+            with self.assertRaisesMessage(ValidationError, "A session name is required"):
+                rename_openplay(openplay_id=openplay.pk, name=blank, actor=self.organizer)
         openplay.refresh_from_db()
-        self.assertEqual(openplay.name, "")
-        self.assertEqual(str(openplay), "OpenPlay at Pickle Star")
+        self.assertEqual(openplay.name, "Keep this")
+        self.assertFalse(AuditEvent.objects.filter(action="OPENPLAY_RENAMED").exists())
+
+    def test_rename_screen_and_inline_editor_refuse_a_blank_name(self):
+        openplay = self.make(name="Keep this")
+        url = reverse("organizer:rename", args=[openplay.pk])
+        self.client.force_login(self.organizer)
+        response = self.client.post(url, {"name": "  "})
+        self.assertEqual(response.status_code, 400)
+        openplay.refresh_from_db()
+        self.assertEqual(openplay.name, "Keep this")
+        page = self.client.get(reverse("organizer:session", args=[openplay.pk]))
+        self.assertRegex(page.content.decode(), r'<input[^>]*name="name"[^>]*required')
 
     def test_rename_rejects_overlong_names_and_players_cannot_rename(self):
         openplay = self.make(name="Keep me")

@@ -216,7 +216,7 @@ class HistoricalAttendanceTests(TestCase):
         fmt = "%Y-%m-%dT%H:%M"
         self.client.force_login(self.organizer)
         created = self.client.post(reverse("organizer:openplay_new"), {
-            "venue": self.venue.pk, "starts_at": start.strftime(fmt), "ends_at": end.strftime(fmt)})
+            "venue": self.venue.pk, "name": "Past session", "starts_at": start.strftime(fmt), "ends_at": end.strftime(fmt)})
         past = OpenPlay.objects.exclude(pk=self.session.pk).get()
         self.assertEqual(created.status_code, 302)
         self.assertEqual(self.client.post(reverse("organizer:complete", args=[past.pk])).status_code, 302)

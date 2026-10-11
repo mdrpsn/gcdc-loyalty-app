@@ -7,13 +7,13 @@
   <form method="post" action="{% url 'organizer:rename' openplay.pk %}" class="inline-rename" data-inline-rename>{% csrf_token %}
     <h1 class="inline-rename-title" data-rename-show tabindex="0" role="button" aria-label="Rename this OpenPlay. Current name: {{ openplay }}">{{ openplay }} <span class="rename-pencil" aria-hidden="true">✎</span></h1>
     <div class="inline-rename-edit" data-rename-edit hidden>
-      <input type="text" name="name" value="{{ openplay.display_name }}" maxlength="80" placeholder="{{ openplay.default_name }}" aria-label="OpenPlay name" autocomplete="off">
+      <input type="text" name="name" value="{{ openplay.display_name }}" maxlength="80" required placeholder="Session name" aria-label="OpenPlay name" autocomplete="off">
       <button type="submit" class="icon-button confirm" aria-label="Save name">✓</button>
       <button type="button" class="icon-button" data-rename-cancel aria-label="Cancel">✕</button>
     </div>
     <noscript><a class="button secondary" href="{% url 'organizer:rename' openplay.pk %}">Rename OpenPlay</a></noscript>
   </form>
-  <p>{{ openplay.venue.name }} · {{ openplay.starts_at|club_time:"D, M j · g:i A" }}–{{ openplay.ends_at|club_time:"g:i A" }}</p><span class="pill">{{ openplay.get_status_display }}</span></div>
+  <p>{{ openplay.venue.name }} · {{ openplay.starts_at|club_time:"D, M j · g:i A" }}–{{ openplay.ends_at|club_time:"g:i A" }} · {{ openplay.duration_label }}</p><span class="pill">{{ openplay.get_status_display }}</span></div>
 <section class="score-strip" aria-label="Roster counts"><div><strong>{{ checked_in_count }}</strong><span>Approved attendance</span></div><div><strong>{{ registered_count }}</strong><span>Registered</span></div><div><strong>{{ unchecked_count }}</strong><span>Registered, awaiting approval</span></div></section>
 {% if pending_count %}<p class="notice warning">{{ pending_count }} attendance submission{{ pending_count|pluralize }} pending admin approval.{% if request.user|is_club_admin %} <a href="{% url 'organizer:attendance_submissions' %}">Review submissions</a>{% endif %}</p>{% endif %}
 <section class="card search-panel sticky-search" aria-labelledby="search-title"><h2 id="search-title">Find a player</h2>

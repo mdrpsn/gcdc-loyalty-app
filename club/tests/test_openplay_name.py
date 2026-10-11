@@ -63,7 +63,7 @@ class OpenPlayNameTests(TestCase):
             self.assertFalse(form.is_valid(), missing)
             self.assertIn("name", form.errors)
         self.assertTrue(OpenPlayForm(data={**base, "name": "Sunday Dinkers"}).is_valid())
-        too_long = OpenPlayForm(data={**base, "name": "x" * 81})
+        too_long = OpenPlayForm(data={**base, "name": "x" * (OpenPlay.NAME_MAX_LENGTH + 1)})
         self.assertFalse(too_long.is_valid())
         self.assertIn("name", too_long.errors)
 
@@ -94,8 +94,37 @@ class OpenPlayNameTests(TestCase):
 
     def test_an_overlong_name_is_rejected_and_nothing_is_created(self):
         with self.assertRaises(ValidationError):
-            self.make(name="x" * 81)
+            self.make(name="x" * (OpenPlay.NAME_MAX_LENGTH + 1))
         self.assertFalse(OpenPlay.objects.exists())
+
+    # --- the limit is long enough for real ReClub event titles
+
+    REAL_TITLE = "DUPR THURSDAY AFTERNOON EDITION | 🏆 TOP 3 WIN PRIZES + FREE SNACKS | BEGINNERS TO HIGH NOVICE"
+
+    def test_the_limit_is_120_and_fits_a_real_93_character_reclub_title(self):
+        self.assertEqual(OpenPlay.NAME_MAX_LENGTH, 120)
+        self.assertEqual(len(self.REAL_TITLE), 93)
+        openplay = self.make(name=self.REAL_TITLE)
+        openplay.refresh_from_db()
+        self.assertEqual(openplay.name, self.REAL_TITLE)
+        rename_openplay(openplay_id=openplay.pk, name=self.REAL_TITLE + " (edited)", actor=self.organizer)
+        openplay.refresh_from_db()
+        self.assertEqual(openplay.name, self.REAL_TITLE + " (edited)")
+
+    def test_a_name_of_exactly_120_is_accepted_and_121_is_not(self):
+        self.assertTrue(OpenPlayForm(data={"venue": self.venue.pk, "starts_at": "2026-12-01T18:00",
+                                           "ends_at": "2026-12-01T20:00", "name": "n" * 120}).is_valid())
+        self.assertFalse(OpenPlayForm(data={"venue": self.venue.pk, "starts_at": "2026-12-01T18:00",
+                                            "ends_at": "2026-12-01T20:00", "name": "n" * 121}).is_valid())
+
+    def test_the_schedule_screen_accepts_a_long_real_title(self):
+        self.client.force_login(self.organizer)
+        response = self.client.post(reverse("organizer:openplay_new"), {
+            "venue": self.venue.pk, "name": self.REAL_TITLE,
+            "starts_at": "2026-12-04T13:00", "ends_at": "2026-12-04T16:00",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(OpenPlay.objects.get().name, self.REAL_TITLE)
 
     # --- editing the name later
 
@@ -134,7 +163,7 @@ class OpenPlayNameTests(TestCase):
     def test_rename_rejects_overlong_names_and_players_cannot_rename(self):
         openplay = self.make(name="Keep me")
         with self.assertRaises(ValidationError):
-            rename_openplay(openplay_id=openplay.pk, name="y" * 81, actor=self.organizer)
+            rename_openplay(openplay_id=openplay.pk, name="y" * (OpenPlay.NAME_MAX_LENGTH + 1), actor=self.organizer)
         with self.assertRaises(PermissionDenied):
             rename_openplay(openplay_id=openplay.pk, name="Hacked", actor=self.member)
         openplay.refresh_from_db()
@@ -163,7 +192,7 @@ class OpenPlayNameTests(TestCase):
         self.assertRedirects(response, reverse("organizer:session", args=[openplay.pk]))
         openplay.refresh_from_db()
         self.assertEqual(openplay.name, "After")
-        too_long = self.client.post(url, {"name": "z" * 81})
+        too_long = self.client.post(url, {"name": "z" * (OpenPlay.NAME_MAX_LENGTH + 1)})
         self.assertEqual(too_long.status_code, 400)
         openplay.refresh_from_db()
         self.assertEqual(openplay.name, "After")
@@ -180,7 +209,7 @@ class OpenPlayNameTests(TestCase):
         self.assertIn("csrfmiddlewaretoken", html[html.rindex("<form", 0, form_start):form_start + len(form)])
         self.assertIn('name="name"', form)
         self.assertIn('value="Sunday Dinkers"', form)
-        self.assertIn('maxlength="80"', form)
+        self.assertIn(f'maxlength="{OpenPlay.NAME_MAX_LENGTH}"', form)
         self.assertIn('aria-label="Save name"', form)
         self.assertIn("data-rename-cancel", form)
         # Visible without scrolling: before the player search and the session actions.

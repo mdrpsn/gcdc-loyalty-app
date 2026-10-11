@@ -3,8 +3,12 @@
 {% block body %}
 <main id="main-content" class="auth-shell auth-recovery" tabindex="-1"><section class="card auth-card">
   <p class="eyebrow">Got Cha Dink Club</p><h1>Check your email</h1>
-  <p>If that address can be used for a new account, a verification link is on its way. It expires in 30 minutes.</p>
-  <p>Didn’t receive it? Check your spam folder, then <a href="{% url 'signup' %}">request another link</a>. Requests are limited to one every two minutes.</p>
-  <p>Already registered? <a href="{% url 'login' %}">Sign in</a> or <a href="{% url 'password_reset' %}">reset your password</a>.</p>
+  <p>If that address can be used for a new account, a verification link is on its way. It works for 30 minutes.</p>
+  <h2>Didn’t get it?</h2>
+  <ul>
+    <li><strong>Check spam and Promotions.</strong> It can take a few minutes to arrive, and make sure the address is spelled correctly.</li>
+    <li><strong>Already signed up before?</strong> You won’t get a new link. <a href="{% url 'login' %}">Sign in</a> or <a href="{% url 'password_reset' %}">reset your password</a>.</li>
+    <li><strong>Still nothing?</strong> Wait two minutes, then <a href="{% url 'signup' %}">request another link</a>. You can ask up to five times an hour.</li>
+  </ul>
 </section></main>
 {% endblock %}

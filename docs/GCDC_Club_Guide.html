@@ -54,7 +54,8 @@
 <span class="who">Admin / Organizer</span>
 <ol>
   <li>On the Organizer desk tap <span class="btn">Add a venue</span>.</li>
-  <li>Type the venue name and save. <strong>Check the spelling first.</strong> There is no rename or delete screen, so a wrong name has to be fixed by whoever manages the website.</li>
+  <li>Look at the <strong>Venues</strong> list under the form first. It shows every venue we already have, with how many OpenPlays are scheduled there, so you don't add the same place twice.</li>
+  <li>Type the venue name and save. <strong>Check the spelling first.</strong> There is no rename or delete screen, so a wrong name has to be fixed by whoever manages the website. After you save, the app takes you straight to <span class="btn">Schedule an OpenPlay</span> with your venue ready to pick.</li>
 </ol>
 
 <h2><span class="n">2</span>Schedule an OpenPlay</h2>
@@ -66,13 +67,13 @@
   <li>Choose <strong>Starts</strong> and <strong>Ends</strong>. Times are Philippine time.</li>
   <li>Save, then look at the session card to make sure the name, date and times are right.</li>
 </ol>
-<div class="box warn"><p><strong>Wrong name?</strong> Open the session and tap <span class="btn">Rename OpenPlay</span>. Type the new name and tap <span class="btn">Save name</span>. Leave it blank to go back to "OpenPlay at" plus the venue. You can rename a session at any time, even after it is finished, and every rename is recorded in the audit log.</p>
+<div class="box warn"><p><strong>Wrong name?</strong> Open the session and <strong>tap its name</strong> at the top of the page (it has a small ✎ next to it). The name turns into a text box <strong>that keeps the current name</strong>, so you only change the letters you need. Tap the green <span class="btn">✓</span> (or press Enter) to save, or <span class="btn">✕</span> (or Esc) to cancel. Clear the box completely to go back to "OpenPlay at" plus the venue. You can rename a session at any time, even after it is finished, and every rename is recorded in the audit log.</p>
 <p><strong>Wrong date, time or venue?</strong> Those cannot be edited. Open the session, <strong>cancel it with a reason</strong>, and schedule it again. Nothing is ever deleted. The cancelled one stays in the history.</p></div>
 
 <h2><span class="n">3</span>Players sign up <span class="sub">(once per player)</span></h2>
 <span class="who player">Player</span>
 <ol>
-  <li>The player opens <strong>/signup/</strong> and enters their email. A link arrives by email and works for <strong>30 minutes</strong>.</li>
+  <li>The player opens <strong>/signup/</strong> and enters their email. A link arrives by email and works for <strong>30 minutes</strong>. The club does <strong>not</strong> get a copy of this email. It goes only to the player.</li>
   <li>After tapping the link they fill in: full name, contact number, <strong>ReClub name</strong>, <strong>ReClub profile link</strong>, and a password.</li>
   <li>They can now register for sessions and submit attendance.</li>
 </ol>
@@ -87,6 +88,13 @@
   </ul>
 </div>
 
+<div class="box"><p><strong>The player says no email arrived?</strong></p>
+  <ul>
+    <li>Ask them to check <strong>spam and Promotions</strong>, and that they typed their address correctly.</li>
+    <li><strong>Already signed up before?</strong> The app sends no new link to an address that already has an account, and it does not say so. Tell them to use <span class="btn">Forgot password</span> on the login page.</li>
+    <li>Otherwise ask them to wait <strong>two minutes</strong> and request a new link (up to five an hour). An old link stops working after 30 minutes.</li>
+  </ul></div>
+
 <h2><span class="n">4</span>Players register for a session</h2>
 <span class="who player">Player</span>
 <ol>
@@ -97,7 +105,7 @@
 <h2><span class="n">5</span>On the day: attendance</h2>
 <span class="who">Admin / Organizer</span> <span class="who player">Player</span>
 <ol>
-  <li>Open the session on your phone to see its roster (registered players). Players find the session by its <strong>name</strong>, date, time and venue, so a clear name helps. If a name is wrong, tap <span class="btn">Rename OpenPlay</span> on the session page.</li>
+  <li>Open the session on your phone to see its roster (registered players). Players find the session by its <strong>name</strong>, date, time and venue, so a clear name helps. If a name is wrong, tap the name at the top of the session page to edit it.</li>
   <li><strong>After the session has started</strong>, attendance can be sent for approval in either of two ways:
     <ul>
       <li><strong>The player does it:</strong> Submit attendance → pick the OpenPlay → <span class="btn">Submit for approval</span>.</li>
@@ -181,7 +189,8 @@
   <tr><th>Problem</th><th>What to do</th></tr>
   <tr><td>The app won't open</td><td>Run the session on a <strong>paper roster</strong>. When the app is back, an admin enters each missing attendance with <strong>Add historical attendance</strong>. Tell the technical operator.</td></tr>
   <tr><td>Player says their login is wrong</td><td>Use <strong>Forgot password</strong> on the login page.</td></tr>
-  <tr><td>Wrong session created</td><td>Wrong <strong>name</strong>: tap <strong>Rename OpenPlay</strong>. Wrong date, time or venue: cancel it with a reason and schedule a new one.</td></tr>
+  <tr><td>Player never got the sign-up email</td><td>Check spam and Promotions. If they have signed up before, no new link is sent: use <strong>Forgot password</strong>. Otherwise wait two minutes and request a new link.</td></tr>
+  <tr><td>Wrong session created</td><td>Wrong <strong>name</strong>: tap the name at the top of the session page and edit it. Wrong date, time or venue: cancel it with a reason and schedule a new one.</td></tr>
   <tr><td>Possible duplicate player</td><td>Don't merge anything during a live session. Ask an admin to check afterward.</td></tr>
   <tr><td>Reward looks wrong</td><td>Don't change anything by hand. Look at the player's history and the Audit page first.</td></tr>
 </table>

@@ -43,3 +43,46 @@ h1,h2,h3{letter-spacing:-.035em}
 .reward-row .state+.muted{margin-left:10px}
 @media(max-width:899px){.brand-logo{width:40px;height:40px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* Accessibility touch-ups (UI check, 2026-10-12). This block must stay last: it deliberately overrides earlier
+   rules so every tap target is at least 44 px and text is not smaller than it needs to be. */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-bottom: 0;
+}
+.section-row > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.appbar-brand {
+  min-height: 44px;
+}
+.nav-links a {
+  font-size: .875rem;
+  min-width: 44px;
+  justify-content: center;
+}
+.nav-button {
+  font-size: .875rem;
+}
+.tab-label {
+  font-size: .75rem;
+}
+.eyebrow,
+.hero .eyebrow,
+.panel-dark .eyebrow,
+.session-tile .eyebrow {
+  font-size: .75rem;
+}
+.badge-label {
+  font-size: .7rem;
+}
+.pill {
+  font-size: .75rem;
+}
+.score-strip span {
+  font-size: .75rem;
+}

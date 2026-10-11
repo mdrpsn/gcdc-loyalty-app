@@ -7,7 +7,7 @@
 <div class="session-list">
   {% for session in today_sessions %}
   <a class="card session-card" href="{% url 'organizer:session' session.pk %}">
-    <div><span class="pill">{{ session.get_status_display }}</span><h2>{{ session }}</h2><p>{{ session.venue.name }} · {{ session.starts_at|club_time:"g:i A" }}–{{ session.ends_at|club_time:"g:i A" }}</p></div>
+    <div><span class="pill">{{ session.get_status_display }}</span><h2>{{ session }}</h2><p>{{ session.venue.name }} · {{ session.starts_at|club_time:"g:i A" }}–{{ session.ends_at|club_time:"g:i A" }} · {{ session.duration_label }}</p></div>
     <div class="session-numbers"><strong>{{ session.checked_in_count }}</strong> checked in <span>· {{ session.registered_count }} registered</span></div>
   </a>
   {% empty %}<div class="card empty"><h2>No OpenPlays today</h2><p>Upcoming sessions appear below when scheduled.</p></div>{% endfor %}
@@ -15,7 +15,7 @@
 <section class="subsection"><h2>Coming up this week</h2>
   <div class="session-list">
     {% for session in upcoming_sessions %}
-    <a class="card session-card" href="{% url 'organizer:session' session.pk %}"><div><h3>{{ session }}</h3><p>{{ session.starts_at|club_time:"D, M j · g:i A" }} · {{ session.venue.name }}</p></div><span>{{ session.registered_count }} registered</span></a>
+    <a class="card session-card" href="{% url 'organizer:session' session.pk %}"><div><h3>{{ session }}</h3><p>{{ session.starts_at|club_time:"D, M j · g:i A" }} · {{ session.duration_label }} · {{ session.venue.name }}</p></div><span>{{ session.registered_count }} registered</span></a>
     {% empty %}<p class="muted">No upcoming OpenPlays in the next seven days.</p>{% endfor %}
   </div>
 </section>

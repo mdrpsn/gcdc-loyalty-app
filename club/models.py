@@ -147,6 +147,16 @@ class OpenPlay(HistoricalModel):
         return self.display_name
 
     @property
+    def duration_label(self):
+        """Length of the session as shown to people, for example "2 hrs" or "1 hr 30 min"."""
+        minutes = int((self.ends_at - self.starts_at).total_seconds() // 60)
+        hours, minutes = divmod(minutes, 60)
+        if not hours:
+            return f"{minutes} min"
+        label = f"{hours} hr" if hours == 1 else f"{hours} hrs"
+        return f"{label} {minutes} min" if minutes else label
+
+    @property
     def default_name(self):
         return f"OpenPlay at {self.venue}"
 

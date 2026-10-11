@@ -13,7 +13,7 @@
     </div>
     <noscript><a class="button secondary" href="{% url 'organizer:rename' openplay.pk %}">Rename OpenPlay</a></noscript>
   </form>
-  <p>{{ openplay.venue.name }} · {{ openplay.starts_at|club_time:"D, M j · g:i A" }}–{{ openplay.ends_at|club_time:"g:i A" }}</p><span class="pill">{{ openplay.get_status_display }}</span></div>
+  <p>{{ openplay.venue.name }} · {{ openplay.starts_at|club_time:"D, M j · g:i A" }}–{{ openplay.ends_at|club_time:"g:i A" }} · {{ openplay.duration_label }}</p><span class="pill">{{ openplay.get_status_display }}</span></div>
 <section class="score-strip" aria-label="Roster counts"><div><strong>{{ checked_in_count }}</strong><span>Approved attendance</span></div><div><strong>{{ registered_count }}</strong><span>Registered</span></div><div><strong>{{ unchecked_count }}</strong><span>Registered, awaiting approval</span></div></section>
 {% if pending_count %}<p class="notice warning">{{ pending_count }} attendance submission{{ pending_count|pluralize }} pending admin approval.{% if request.user|is_club_admin %} <a href="{% url 'organizer:attendance_submissions' %}">Review submissions</a>{% endif %}</p>{% endif %}
 <section class="card search-panel sticky-search" aria-labelledby="search-title"><h2 id="search-title">Find a player</h2>

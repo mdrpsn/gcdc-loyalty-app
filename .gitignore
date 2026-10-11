@@ -20,3 +20,6 @@ staticfiles/
 Thumbs.db
 backups/
 *.dump.enc
+
+# Screenshots and exports of real club members from ReClub (personal data): never commit.
+reclub/

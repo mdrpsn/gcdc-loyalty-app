@@ -42,7 +42,7 @@ class RewardExpiryViewTests(TestCase):
             venue=self.venue, starts_at=self.now + timedelta(days=1), ends_at=self.now + timedelta(days=1, hours=2),
         )
         self.discount = RewardIssuance.objects.get(player=self.player, benefit_key="discount-50")
-        self.overgrip = RewardIssuance.objects.get(player=self.player, benefit_key="overgrip")
+        self.overgrip = RewardIssuance.objects.get(player=self.player, benefit_key="club-perk")
 
     def expire(self, issuance):
         RewardIssuance.objects.filter(pk=issuance.pk).update(

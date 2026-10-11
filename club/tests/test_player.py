@@ -147,7 +147,7 @@ class PlayerRequestTests(TestCase):
         pending.save()
         reconcile_player_loyalty(self.player, actor=self.staff)
         response = self.client.get(self.url("home"))
-        self.assertEqual(response.context["summary"].next_milestone.threshold, 25)
+        self.assertEqual(response.context["summary"].next_milestone.threshold, 20)
         self.assertContains(response, "Available reward")
         self.assertContains(response, "Dinker")
         self.assertNotContains(response, "Reward pending session completion")
@@ -186,16 +186,17 @@ class PlayerRequestTests(TestCase):
     def test_reward_status_and_historical_snapshot(self):
         self.history(75)
         reconcile_player_loyalty(self.player, actor=self.staff)
-        # 10: the ₱50 discount; 50: free OpenPlay; 75: free OpenPlay and overgrip (recognition has no row).
+        # 10: ₱50 discount; 20: ₱100 discount; 30, 50 and 75: free OpenPlay; 75 also the club item/perk
+        # (recognition has no row).
         rewards = list(RewardIssuance.objects.filter(player=self.player).order_by("milestone__threshold", "pk"))
-        self.assertEqual(len(rewards), 4)
+        self.assertEqual(len(rewards), 6)
         RewardRedemption.objects.create(issuance=rewards[0], player=self.player, redeemed_by=self.staff, openplay=self.future)
         rewards[0].status = RewardIssuance.Status.REDEEMED
         rewards[0].save()
-        rewards[3].status = RewardIssuance.Status.REVOKED
-        rewards[3].revoked_at = self.now
-        rewards[3].revoked_reason = "Correction"
-        rewards[3].save()
+        rewards[5].status = RewardIssuance.Status.REVOKED
+        rewards[5].revoked_at = self.now
+        rewards[5].revoked_reason = "Correction"
+        rewards[5].save()
         rewards[1].milestone.benefits = [{"kind": "PERK", "description": "Changed later"}]
         rewards[1].milestone.save()
         with CaptureQueriesContext(connection) as captured:

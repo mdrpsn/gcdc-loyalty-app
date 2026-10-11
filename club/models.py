@@ -120,8 +120,10 @@ class OpenPlay(HistoricalModel):
         CANCELLED = "CANCELLED", "Cancelled"
 
     venue = models.ForeignKey(Venue, on_delete=models.PROTECT, related_name="openplays")
-    # Optional label chosen by the club; blank means "OpenPlay at <venue>".
-    name = models.CharField(max_length=80, blank=True)
+    # Long enough for real ReClub event titles (the longest seen so far is 93 characters).
+    NAME_MAX_LENGTH = 120
+    # The club's label; older sessions may have none and show "OpenPlay at <venue>".
+    name = models.CharField(max_length=NAME_MAX_LENGTH, blank=True)
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField()
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.SCHEDULED)

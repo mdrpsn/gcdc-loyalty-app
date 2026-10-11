@@ -7,7 +7,7 @@
   <form method="post" action="{% url 'organizer:rename' openplay.pk %}" class="inline-rename" data-inline-rename>{% csrf_token %}
     <h1 class="inline-rename-title" data-rename-show tabindex="0" role="button" aria-label="Rename this OpenPlay. Current name: {{ openplay }}">{{ openplay }} <span class="rename-pencil" aria-hidden="true">✎</span></h1>
     <div class="inline-rename-edit" data-rename-edit hidden>
-      <input type="text" name="name" value="{{ openplay.display_name }}" maxlength="80" required placeholder="Session name" aria-label="OpenPlay name" autocomplete="off">
+      <input type="text" name="name" value="{{ openplay.display_name }}" maxlength="{{ openplay.NAME_MAX_LENGTH }}" required placeholder="Session name" aria-label="OpenPlay name" autocomplete="off">
       <button type="submit" class="icon-button confirm" aria-label="Save name">✓</button>
       <button type="button" class="icon-button" data-rename-cancel aria-label="Cancel">✕</button>
     </div>

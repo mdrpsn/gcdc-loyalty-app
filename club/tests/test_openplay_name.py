@@ -51,7 +51,10 @@ class OpenPlayNameTests(TestCase):
         self.client.force_login(self.organizer)
         page = self.client.get(reverse("organizer:session", args=[openplay.pk]))
         self.assertContains(page, "Sunday Morning Dinkers")
-        self.assertNotContains(page, "OpenPlay at Pickle Star")
+        html = page.content.decode()
+        title = html[html.index("data-rename-show"):html.index("</h1>")]
+        self.assertIn("Sunday Morning Dinkers", title)
+        self.assertNotIn("OpenPlay at Pickle Star", title)  # only the editor's placeholder mentions the default
 
     def test_the_schedule_form_has_an_optional_name_field(self):
         form = OpenPlayForm(data={"venue": self.venue.pk, "starts_at": "2026-12-01T18:00",
@@ -154,12 +157,34 @@ class OpenPlayNameTests(TestCase):
         self.assertLess(form_start, html.index("Find a player"))
         self.assertLess(form_start, html.index("Session actions"))
 
-    def test_inline_form_shows_the_default_name_as_a_placeholder_when_unnamed(self):
+    def test_inline_form_opens_with_the_full_current_name_even_when_unnamed(self):
+        # Opening the editor must never look like the name was erased: an unnamed session shows
+        # its default name as real text so a few letters can be changed.
         openplay = self.make()
         self.client.force_login(self.organizer)
         page = self.client.get(reverse("organizer:session", args=[openplay.pk]))
-        self.assertContains(page, 'placeholder="OpenPlay at Pickle Star"')
-        self.assertContains(page, 'value=""')
+        self.assertContains(page, 'value="OpenPlay at Pickle Star"')
+
+    def test_inline_script_keeps_the_text_and_puts_the_cursor_at_the_end(self):
+        openplay = self.make(name="Sunday Dinkers")
+        self.client.force_login(self.organizer)
+        script = self.client.get(reverse("organizer:session", args=[openplay.pk])).content.decode()
+        script = script[script.index("<script>"):script.index("</script>")]
+        self.assertNotIn(".select()", script)  # select-all makes the first keystroke replace everything
+        self.assertIn("setSelectionRange", script)
+
+    def test_saving_the_default_text_unchanged_keeps_the_session_unnamed(self):
+        openplay = self.make()
+        rename_openplay(openplay_id=openplay.pk, name="OpenPlay at Pickle Star", actor=self.organizer)
+        openplay.refresh_from_db()
+        self.assertEqual(openplay.name, "")
+        self.assertFalse(AuditEvent.objects.filter(action="OPENPLAY_RENAMED").exists())
+
+    def test_editing_a_few_letters_of_the_default_name_saves_a_custom_name(self):
+        openplay = self.make()
+        rename_openplay(openplay_id=openplay.pk, name="OpenPlay at Pickle Star (Beginners)", actor=self.organizer)
+        openplay.refresh_from_db()
+        self.assertEqual(openplay.name, "OpenPlay at Pickle Star (Beginners)")
 
     def test_posting_from_the_inline_form_saves_and_returns_to_the_same_session(self):
         openplay = self.make(name="Before")

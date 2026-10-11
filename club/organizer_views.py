@@ -291,7 +291,7 @@ def cancel_session(request, openplay_id):
 @require_http_methods(["GET", "POST"])
 def rename_session(request, openplay_id):
     openplay = get_object_or_404(OpenPlay.objects.select_related("venue"), pk=openplay_id)
-    form = OpenPlayNameForm(request.POST or None, initial={"name": openplay.name})
+    form = OpenPlayNameForm(request.POST or None, initial={"name": openplay.display_name})
     if request.method == "POST" and form.is_valid():
         try:
             rename_openplay(openplay_id=openplay_id, name=form.cleaned_data["name"], actor=request.user)

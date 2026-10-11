@@ -196,6 +196,8 @@ def rename_openplay(*, openplay_id, name, actor):
     require_organizer(actor)
     openplay = OpenPlay.objects.select_for_update().get(pk=openplay_id)
     name = name.strip()
+    if name == openplay.default_name:
+        name = ""  # the editor opens with the default text; saving it unchanged leaves the session unnamed
     previous_name = openplay.name
     if name == previous_name:
         return openplay

@@ -31,7 +31,7 @@ class SchedulingTests(TestCase):
 
     def post_openplay(self, starts, ends, venue=None, **extra):
         return self.client.post(self.openplay_url, {
-            "venue": (venue or self.venue).pk, "starts_at": starts, "ends_at": ends,
+            "venue": (venue or self.venue).pk, "name": "Test session", "starts_at": starts, "ends_at": ends,
         }, **extra)
 
     def test_anonymous_is_sent_to_login_and_nothing_is_created(self):
@@ -159,7 +159,7 @@ class SchedulingDstTests(TestCase):
         self.url = reverse("organizer:openplay_new")
 
     def post(self, starts, ends):
-        return self.client.post(self.url, {"venue": self.venue.pk, "starts_at": starts, "ends_at": ends})
+        return self.client.post(self.url, {"venue": self.venue.pk, "name": "DST test", "starts_at": starts, "ends_at": ends})
 
     def test_nonexistent_spring_forward_time_is_rejected(self):
         response = self.post("2026-03-08T02:30", "2026-03-08T04:00")

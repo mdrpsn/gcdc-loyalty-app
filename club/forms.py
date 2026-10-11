@@ -27,8 +27,8 @@ class VenueForm(forms.Form):
 
 class OpenPlayNameForm(forms.Form):
     name = forms.CharField(
-        max_length=80, required=False, label="Session name (optional)",
-        help_text="Players see this name. Leave blank to use “OpenPlay at” plus the venue.",
+        max_length=80, label="Session name",
+        help_text="Players see this name, for example “Sunday Morning OpenPlay”.",
     )
 
 

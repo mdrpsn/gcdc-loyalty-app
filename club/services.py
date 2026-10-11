@@ -192,15 +192,16 @@ def create_openplay(*, venue_id, starts_at, ends_at, actor, name=""):
 
 @transaction.atomic
 def rename_openplay(*, openplay_id, name, actor):
-    """Change only the label of an OpenPlay; blank restores the default "OpenPlay at <venue>"."""
+    """Change only the label of an OpenPlay. A name is required; older unnamed sessions keep showing
+    "OpenPlay at <venue>" until they are given one."""
     require_organizer(actor)
-    openplay = OpenPlay.objects.select_for_update().get(pk=openplay_id)
     name = name.strip()
-    if name == openplay.default_name:
-        name = ""  # the editor opens with the default text; saving it unchanged leaves the session unnamed
+    if not name:
+        raise ValidationError("A session name is required")
+    openplay = OpenPlay.objects.select_for_update().get(pk=openplay_id)
+    if name == openplay.display_name:
+        return openplay  # nothing changed (the editor opens with the current or default text)
     previous_name = openplay.name
-    if name == previous_name:
-        return openplay
     openplay.name = name
     openplay.full_clean(exclude=["venue", "starts_at", "ends_at"])
     openplay.save(update_fields=["name", "updated_at"])

@@ -147,8 +147,12 @@ class OpenPlay(HistoricalModel):
         return self.display_name
 
     @property
+    def default_name(self):
+        return f"OpenPlay at {self.venue}"
+
+    @property
     def display_name(self):
-        return self.name or f"OpenPlay at {self.venue}"
+        return self.name or self.default_name
 
     @property
     def period(self):

@@ -1,10 +1,12 @@
 # Got Cha Dink Club
 
-Production preparation and recovery procedures are in [Launch readiness](docs/LAUNCH_READINESS.md), [Render deployment](docs/RENDER_DEPLOYMENT.md), and [Operator runbook](docs/OPERATOR_RUNBOOK.md). These documents do not mean that hosting, SMTP, backups, or monitoring have been provisioned.
+Production preparation and recovery procedures are in [Launch readiness](docs/LAUNCH_READINESS.md), [Render deployment](docs/RENDER_DEPLOYMENT.md), and [Operator runbook](docs/OPERATOR_RUNBOOK.md). The launch document records which requirements (hosting, SMTP, backups, monitoring) are in use and which still need verification.
+
+Live at https://playpass.gotchadinkclub.com (pilot started October 2026).
 
 Server-rendered Django loyalty application for Got Cha Dink Club OpenPlay sessions. Members sign up, manage their profile and registrations, submit attendance for admin review, and view loyalty progress, rewards, streaks, and badges. Staff can run rosters, assist signed-up members, complete or cancel sessions, and redeem rewards. Admins approve or decline submitted attendance. The attendance ledger and loyalty engine remain the source of truth.
 
-Phase 6 adds password recovery, timezone safeguards, role-change audit in Django admin, production configuration checks, and an operator runbook. It does not provision hosting, SMTP, monitoring, or backups; see the launch document before using real club data.
+Phase 6 adds password recovery, timezone safeguards, role-change audit in Django admin, production configuration checks, and an operator runbook. Hosting, SMTP, monitoring, and backups are set up on the hosting providers, not in this repository; see the launch document for their current status.
 
 ## Stack and prerequisites
 

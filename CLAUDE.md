@@ -56,6 +56,10 @@ New players must sign up before attendance submission. Public guest submission a
 - No commits or pushes without explicit authorization. Staging only until told otherwise; never touch production.
 - Never print or commit secrets.
 - Treat documentation claims as unverified until you run the check.
+- Tests that depend on the date or time of day fake the clock; never the real current time or a hard-coded date. Three CI failures came from this.
+- Show each new regression test failing without the change, then passing with it.
+- CI also runs `uvx ruff@0.17.0 check .` (correctness rules only); run it locally before pushing.
+- Changes to loyalty rules or any data import get a fresh-context review of the diff before merge, and bulk writes get a dry-run mode that writes nothing.
 
 ## Status (as of 2026-10-10)
 

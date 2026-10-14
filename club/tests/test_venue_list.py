@@ -33,7 +33,7 @@ class VenueListTests(TestCase):
 
     def test_existing_venues_are_listed_alphabetically_with_their_session_counts(self):
         pickle = Venue.objects.create(name="Pickle Star")
-        arena = Venue.objects.create(name="Arena Court")
+        Venue.objects.create(name="Arena Court")
         self.schedule(pickle, 0)
         self.schedule(pickle, 1)
         cancelled = self.schedule(pickle, 2)

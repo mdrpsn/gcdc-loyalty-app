@@ -15,11 +15,11 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.permissions import ADMIN, ORGANIZER
-from club.loyalty import get_loyalty_summary, reconcile_player_loyalty, redeem_reward
+from club.loyalty import get_loyalty_summary, redeem_reward
 from club.models import Attendance, AuditEvent, OpenPlay, Player, Registration, RewardIssuance, Venue
 from club.progression import get_badges, get_streaks
 from club.services import (
-    cancel_openplay, check_in, check_in_walk_in, complete_openplay,
+    check_in, check_in_walk_in, complete_openplay,
     create_openplay, create_venue, link_player_account, openplays_attended,
     register_player, update_own_profile, void_attendance,
 )

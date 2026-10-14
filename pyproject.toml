@@ -14,3 +14,12 @@ dependencies = [
 [tool.uv]
 package = false
 
+
+[tool.ruff]
+extend-exclude = ["staticfiles", "reclub", "landing"]
+
+[tool.ruff.lint]
+# Correctness only: syntax errors, undefined names, unused imports and variables.
+select = ["E4", "E7", "E9", "F"]
+# Django settings modules use star imports on purpose.
+ignore = ["F403", "F405"]

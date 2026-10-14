@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from accounts.permissions import ADMIN, ORGANIZER
 from club.loyalty import reconcile_player_loyalty, redeem_reward
-from club.models import Attendance, AuditEvent, OpenPlay, Player, Venue
+from club.models import Attendance, AuditEvent, OpenPlay, Player
 from club.services import (
     add_historical_attendance, cancel_openplay, check_in_walk_in, complete_openplay, create_openplay,
     create_venue, create_walk_in_player, link_player_account, restore_attendance, update_own_profile,

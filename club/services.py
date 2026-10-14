@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import URLValidator, validate_email
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from accounts.permissions import is_organizer, require_admin, require_organizer
@@ -148,7 +148,18 @@ def find_players(*, term, actor):
         | Q(phone__icontains=term)
         | Q(contact_email__icontains=term)
         | Q(user__email__icontains=term)
+        | Q(reclub_name__icontains=term)
     ).distinct()
+
+
+def players_with_attended_counts(players):
+    """Annotate `attended` on a Player queryset in one query. Same rule as `_counted_attendances`."""
+    return players.annotate(attended=Count(
+        "attendances",
+        filter=Q(attendances__status=Attendance.Status.VALID)
+        & ~Q(attendances__openplay__status=OpenPlay.Status.CANCELLED),
+        distinct=True,
+    ))
 
 
 def find_walk_in_matches(*, display_name, phone, contact_email, actor, reclub_profile_url=""):

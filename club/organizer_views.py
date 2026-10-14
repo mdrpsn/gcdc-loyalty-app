@@ -40,6 +40,7 @@ from .services import (
     find_players,
     link_player_account,
     openplays_attended,
+    players_with_attended_counts,
     rename_openplay,
     review_attendance_submission,
     restore_attendance,
@@ -356,9 +357,27 @@ def openplay_new(request):
 @require_GET
 def player_search(request):
     query = request.GET.get("q", "").strip()[:100]
-    players = list(find_players(term=query, actor=request.user).select_related("user")
-                   .order_by("display_name", "pk")[:30]) if len(query) >= 2 else []
-    return render(request, "organizer/players.html", {"query": query, "players": players})
+    if len(query) < 2:
+        query = ""  # too short to search on; list everyone instead of a misleading "Results"
+    selected = request.GET.get("status", "all").lower()
+    if selected not in {"all", "signed_up", "walk_in"}:
+        selected = "all"
+    matches = find_players(term=query, actor=request.user) if query else Player.objects.all()
+    counts = {
+        "all": matches.count(),
+        "signed_up": matches.filter(user__isnull=False).count(),
+        "walk_in": matches.filter(user__isnull=True).count(),
+    }
+    if selected != "all":
+        matches = matches.filter(user__isnull=(selected == "walk_in"))
+    rows = players_with_attended_counts(matches).select_related("user").order_by("display_name", "pk")
+    page = Paginator(rows, 25).get_page(request.GET.get("page"))
+    params = request.GET.copy()
+    params.pop("page", None)
+    return render(request, "organizer/players.html", {
+        "query": query, "selected": selected, "counts": counts, "page": page,
+        "query_string": params.urlencode(),
+    })
 
 
 @organizer_view

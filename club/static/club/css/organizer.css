@@ -469,6 +469,13 @@ h3 {
 .result-link span {
   color:var(--muted)
 }
+@media (max-width:600px) {
+  .player-row {
+    flex-direction:column;
+    align-items:flex-start;
+    gap:2px
+  }
+}
 .auth-shell {
   min-height:100vh;
   display:grid;
